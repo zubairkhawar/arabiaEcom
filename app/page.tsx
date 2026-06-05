@@ -1,65 +1,113 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Sparkles, ArrowRight } from "lucide-react";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { useRole } from "@/lib/role";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const { setRole } = useRole();
+  const [email, setEmail] = useState("layla@aurorastore.ae");
+  const [role, setLocalRole] = useState<"reseller" | "admin">("reseller");
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setRole(role);
+    router.push(role === "admin" ? "/admin" : "/reseller");
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="min-h-screen flex">
+      <div className="hidden lg:flex flex-1 bg-[var(--bg-sidebar)] text-white p-12 flex-col justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
+            <Sparkles size={20} />
+          </div>
+          <div className="font-display font-bold text-xl">Arabia AI</div>
+        </div>
+        <div className="max-w-md">
+          <h2 className="font-display text-3xl font-bold leading-tight">
+            One inbox. Two channels. Zero missed orders.
+          </h2>
+          <p className="text-slate-400 mt-3 leading-relaxed">
+            WhatsApp + Shopify order automation, powered by your own AI agent. The customer
+            never waits — and you only step in when it matters.
           </p>
+          <ul className="mt-6 space-y-2 text-sm text-slate-300">
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> Run your own
+              WhatsApp number or use our universal pool
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> Multi-store
+              Shopify webhook routing
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> Take over any
+              chat with one click
+            </li>
+          </ul>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+        <div className="text-xs text-slate-500">© 2026 Arabia AI · demo build</div>
+      </div>
+
+      <div className="flex-1 flex items-center justify-center px-6 py-12">
+        <form
+          onSubmit={submit}
+          className="w-full max-w-sm bg-white border border-[var(--border)] rounded-2xl p-7 card-shadow"
+        >
+          <h1 className="text-2xl font-display font-bold text-[var(--text-primary)]">
+            Welcome back
+          </h1>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">
+            Sign in to your Arabia AI dashboard.
+          </p>
+
+          <div className="mt-6 space-y-4">
+            <Input
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@brand.com"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+            <Input label="Password" type="password" defaultValue="demo-password" />
+
+            <div>
+              <span className="block mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
+                Sign in as
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                {(["reseller", "admin"] as const).map((r) => (
+                  <button
+                    type="button"
+                    key={r}
+                    onClick={() => setLocalRole(r)}
+                    className={`h-10 rounded-lg border text-sm font-medium capitalize transition-colors ${
+                      role === r
+                        ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                        : "border-[var(--border)] bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <Button type="submit" className="w-full mt-6" rightIcon={<ArrowRight size={16} />}>
+            Continue
+          </Button>
+
+          <p className="text-xs text-[var(--text-muted)] text-center mt-5">
+            Demo — any email works. Use the switcher in the top bar to swap portals.
+          </p>
+        </form>
+      </div>
     </div>
   );
 }
