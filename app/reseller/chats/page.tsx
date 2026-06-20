@@ -1,5 +1,5 @@
 import { Shell } from "@/components/layout/Shell";
-import { ChatPanel } from "@/components/chat/ChatPanel";
+import { LiveChatPanel } from "@/components/chat/LiveChatPanel";
 
 export default function ChatsPage() {
   return (
@@ -8,7 +8,7 @@ export default function ChatsPage() {
       title="Live Chats"
       subtitle="AI handles every chat by default — take over with one click."
     >
-      <ChatPanel />
+      <LiveChatPanel />
     </Shell>
   );
 }

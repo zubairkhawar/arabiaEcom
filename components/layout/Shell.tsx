@@ -18,22 +18,35 @@ export function Shell({
   subtitle?: string;
   portal: "reseller" | "admin";
 }) {
-  const { role, setRole } = useRole();
+  const { role, setRole, profile, loading } = useRole();
   const pathname = usePathname();
   const router = useRouter();
 
-  // Keep role in sync with the route prefix so the demo role-switch redirects
+  // Redirect to login when there's no session
+  useEffect(() => {
+    if (!loading && !profile) router.replace("/");
+  }, [loading, profile, router]);
+
+  // Sync role with the current route prefix
   useEffect(() => {
     if (role !== portal) setRole(portal);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [portal]);
 
-  // When role toggles from the topbar menu, jump portals
+  // Allow topbar toggle to hop portals
   useEffect(() => {
     if (role === "admin" && pathname.startsWith("/reseller")) router.push("/admin");
     if (role === "reseller" && pathname.startsWith("/admin")) router.push("/reseller");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
+
+  if (loading || !profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-[var(--text-secondary)]">
+        Loading…
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[var(--bg-app)]">

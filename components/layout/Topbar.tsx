@@ -1,13 +1,15 @@
 "use client";
 
-import { Bell, Calendar, Globe, ChevronDown, Repeat } from "lucide-react";
+import { Bell, Calendar, Globe, ChevronDown, Repeat, LogOut } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { useRole } from "@/lib/role";
 
 export function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
-  const { role, toggle, userName, userEmail } = useRole();
+  const { role, toggle, userName, userEmail, signOut } = useRole();
   const [menuOpen, setMenuOpen] = useState(false);
+  const router = useRouter();
   return (
     <header className="sticky top-0 z-30 bg-[var(--bg-app)]/80 backdrop-blur border-b border-[var(--border)] px-6 lg:px-8 py-4">
       <div className="flex items-center justify-between gap-4">
@@ -69,11 +71,15 @@ export function Topbar({ title, subtitle }: { title: string; subtitle?: string }
                   View as {role === "admin" ? "Reseller" : "Admin"}
                 </button>
                 <div className="border-t border-[var(--border)]">
-                  <button className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
-                    Profile
-                  </button>
-                  <button className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">
-                    Sign out
+                  <button
+                    onClick={() => {
+                      signOut();
+                      setMenuOpen(false);
+                      router.replace("/");
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                  >
+                    <LogOut size={15} /> Sign out
                   </button>
                 </div>
               </div>

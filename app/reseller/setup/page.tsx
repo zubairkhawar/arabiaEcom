@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   MessageCircle,
   ShoppingBag,
@@ -8,30 +8,42 @@ import {
   Phone,
   Globe,
   CheckCircle2,
-  Plus,
-  Store,
   Info,
   HelpCircle,
+  ShieldCheck,
+  AlertCircle,
 } from "lucide-react";
 import { Shell } from "@/components/layout/Shell";
-import { Card, CardHeader } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { Tabs } from "@/components/ui/Tabs";
-import { Input } from "@/components/ui/Input";
+import { Input, Select } from "@/components/ui/Input";
 import { CopyField } from "@/components/ui/CopyField";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { Modal } from "@/components/ui/Modal";
+import { api, ApiError, API_BASE } from "@/lib/api";
+import { useRole } from "@/lib/role";
 import { cn } from "@/lib/cn";
 
-type NumberType = "own" | "universal" | null;
+type NumberType = "own" | "universal";
 
-interface ShopifyStore {
-  id: string;
-  name: string;
-  domain: string;
-  status: "connected" | "syncing";
-  products: number;
-  orders: number;
+interface MetaConfigOut {
+  pixel_id: string | null;
+  has_token: boolean;
+  test_event_code: string | null;
+  default_event: string;
+  action_source: string;
+  is_pixel_verified: boolean;
+  is_capi_verified: boolean;
+  verified: boolean;
+}
+
+interface WhatsAppConfigOut {
+  number_type: NumberType;
+  waba_id: string | null;
+  phone_number_id: string | null;
+  display_phone_number: string | null;
+  has_token: boolean;
+  verified: boolean;
 }
 
 export default function SetupPage() {
@@ -40,7 +52,7 @@ export default function SetupPage() {
     <Shell
       portal="reseller"
       title="Channel Setup"
-      subtitle="Connect WhatsApp, Shopify, or both. You can run them at the same time."
+      subtitle="Connect WhatsApp + your Meta Pixel so AI-confirmed orders attribute back to your ads."
     >
       <Card padded={false}>
         <div className="p-5 border-b border-[var(--border)]">
@@ -50,12 +62,15 @@ export default function SetupPage() {
             variant="underline"
             tabs={[
               { id: "whatsapp", label: "WhatsApp" },
+              { id: "meta", label: "Meta Pixel + CAPI" },
               { id: "shopify", label: "Shopify" },
             ]}
           />
         </div>
         <div className="p-5 md:p-7">
-          {tab === "whatsapp" ? <WhatsAppWizard /> : <ShopifyWizard />}
+          {tab === "whatsapp" && <WhatsAppWizard />}
+          {tab === "meta" && <MetaPixelPanel />}
+          {tab === "shopify" && <ShopifyPanel />}
         </div>
       </Card>
     </Shell>
@@ -85,11 +100,9 @@ function NumberTypeChoice({
         </div>
         <div className="font-semibold text-[var(--text-primary)]">Use my own number</div>
         <p className="text-sm text-[var(--text-secondary)] mt-1">
-          Connect your WhatsApp Business number via Meta. Best for established brands with
-          their own customer history.
+          Connect your WhatsApp Business number via Meta Cloud API.
         </p>
       </button>
-
       <button
         onClick={() => onChange("universal")}
         className={cn(
@@ -104,8 +117,7 @@ function NumberTypeChoice({
         </div>
         <div className="font-semibold text-[var(--text-primary)]">Use our universal number</div>
         <p className="text-sm text-[var(--text-secondary)] mt-1">
-          No setup. We route customers to a country-specific number from our pool. Each
-          product just needs a target country.
+          No setup. We auto-assign you a slot on a country-specific pool number.
         </p>
       </button>
     </div>
@@ -113,8 +125,64 @@ function NumberTypeChoice({
 }
 
 function WhatsAppWizard() {
+  const { profile } = useRole();
+  const [cfg, setCfg] = useState<WhatsAppConfigOut | null>(null);
   const [type, setType] = useState<NumberType>("own");
-  const [verified, setVerified] = useState(false);
+  const [waba, setWaba] = useState("");
+  const [pn, setPn] = useState("");
+  const [display, setDisplay] = useState("");
+  const [token, setToken] = useState("");
+  const [verifyTok, setVerifyTok] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  useEffect(() => {
+    api<WhatsAppConfigOut>("/me/wa-config")
+      .then((c) => {
+        setCfg(c);
+        setType(c.number_type);
+        setWaba(c.waba_id ?? "");
+        setPn(c.phone_number_id ?? "");
+        setDisplay(c.display_phone_number ?? "");
+      })
+      .catch((e) => setErr(e instanceof Error ? e.message : "Failed to load"));
+  }, []);
+
+  const save = async () => {
+    setBusy(true);
+    setErr(null);
+    setOk(null);
+    try {
+      const next = await api<WhatsAppConfigOut>("/me/wa-config", {
+        method: "PUT",
+        body: {
+          number_type: type,
+          waba_id: type === "own" ? waba : null,
+          phone_number_id: type === "own" ? pn : null,
+          display_phone_number: type === "own" ? display : null,
+          access_token: type === "own" && token ? token : null,
+          webhook_verify_token: type === "own" && verifyTok ? verifyTok : null,
+        },
+      });
+      setCfg(next);
+      setOk(
+        type === "universal"
+          ? "Universal pool active — you'll be auto-assigned on first link click."
+          : "WhatsApp configuration saved."
+      );
+      setToken("");
+      setVerifyTok("");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const webhookUrl = profile
+    ? `${API_BASE}/webhooks/wa/${profile.id}`
+    : `${API_BASE}/webhooks/wa/{your_reseller_id}`;
 
   return (
     <div className="space-y-7">
@@ -135,286 +203,283 @@ function WhatsAppWizard() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold">Step 1 · Choose number type</h3>
-          {type && (
+          {cfg?.verified && (
             <Badge tone="success" dot>
-              {type === "own" ? "Own number" : "Universal pool"}
+              {cfg.number_type === "own" ? "Own number connected" : "Universal pool active"}
             </Badge>
           )}
         </div>
         <NumberTypeChoice value={type} onChange={setType} />
       </div>
 
-      {type === "own" && (
+      {type === "own" ? (
         <div className="space-y-5">
-          <div className="grid md:grid-cols-2 gap-5">
-            <div className="aspect-video rounded-xl bg-slate-900 text-white flex items-center justify-center relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/20 to-transparent" />
-              <button className="relative w-14 h-14 rounded-full bg-white text-emerald-600 flex items-center justify-center shadow-lg">
-                <Play size={20} className="ml-0.5 fill-current" />
-              </button>
-              <div className="absolute bottom-3 left-4 text-xs text-white/80">
-                Video guide · How to connect WhatsApp to Meta
-              </div>
-            </div>
-            <div className="rounded-xl bg-slate-50 border border-[var(--border)] p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <HelpCircle size={16} className="text-[var(--accent)]" />
-                <span className="text-sm font-semibold">Need help getting tokens?</span>
-              </div>
-              <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                Our team can connect your Meta WhatsApp Business account for you in under
-                10 minutes — no setup required from your side.
-              </p>
-              <div className="mt-3 text-sm">
-                <div className="font-medium">support@arabia-ai.com</div>
-                <div className="text-[var(--text-secondary)]">+971 4 555 0100</div>
-              </div>
+          <div className="rounded-xl bg-slate-50 border border-[var(--border)] p-4 flex gap-3">
+            <HelpCircle size={16} className="text-[var(--accent)] mt-0.5 shrink-0" />
+            <div className="text-sm text-slate-700">
+              Grab these from Meta Business Suite → WhatsApp Manager → API setup. After
+              saving, point Meta's webhook to the URL below.
             </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
-            <Input label="WhatsApp Business Account ID" placeholder="1234567890123456" />
-            <Input label="Phone Number ID" placeholder="9876543210123456" />
-            <Input label="Permanent Access Token" type="password" placeholder="EAAQ..." />
-            <Input label="Webhook Verify Token" placeholder="my-secret-token" />
+            <Input label="WhatsApp Business Account ID" value={waba} onChange={(e) => setWaba(e.target.value)} placeholder="1234567890123456" />
+            <Input label="Phone Number ID" value={pn} onChange={(e) => setPn(e.target.value)} placeholder="9876543210123456" />
+            <Input label="Display phone (E.164)" value={display} onChange={(e) => setDisplay(e.target.value)} placeholder="+971 50 123 0001" />
+            <Input
+              label={cfg?.has_token ? "Permanent Access Token (leave blank to keep existing)" : "Permanent Access Token"}
+              type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="EAAQ…"
+            />
+            <Input label="Webhook Verify Token (any secret string)" value={verifyTok} onChange={(e) => setVerifyTok(e.target.value)} placeholder="my-secret-token" />
           </div>
 
-          <div className="flex items-center gap-3">
-            <Button onClick={() => setVerified(true)}>Verify connection</Button>
-            {verified && (
-              <Badge tone="success" dot>
-                Connected · +971 50 123 0001
-              </Badge>
-            )}
-          </div>
+          <CopyField label="Set this as your Meta webhook URL" value={webhookUrl} />
         </div>
-      )}
-
-      {type === "universal" && (
+      ) : (
         <div className="rounded-xl bg-[var(--accent-soft)] border border-emerald-200 p-5 flex gap-3">
           <Info size={18} className="text-[var(--accent)] mt-0.5 shrink-0" />
           <div>
             <div className="font-semibold text-[var(--text-primary)]">No setup required</div>
             <p className="text-sm text-slate-700 mt-1">
-              Your customers will message a country-specific number from our pool. Each
-              product must specify a target country — we route inbound chats to the right
-              pool number automatically.
+              Customers will message a country-specific number from our pool. You'll be
+              auto-assigned a slot the first time a product link is clicked.
             </p>
-            <div className="mt-3">
-              <Button>Continue to Products</Button>
-            </div>
           </div>
         </div>
       )}
 
-      <div className="border-t border-[var(--border)] pt-5">
-        <h3 className="text-sm font-semibold mb-3">Step 2 · Status</h3>
-        <div className="flex items-center gap-3 rounded-xl bg-white border border-[var(--border)] p-4">
-          <CheckCircle2
-            size={20}
-            className={verified || type === "universal" ? "text-[var(--accent)]" : "text-slate-300"}
-          />
-          <div className="flex-1">
-            <div className="text-sm font-medium">
-              {verified
-                ? "Connected · own number +971 50 123 0001"
-                : type === "universal"
-                ? "Universal pool active"
-                : "Not connected yet"}
-            </div>
-            <div className="text-xs text-[var(--text-secondary)]">
-              {verified || type === "universal"
-                ? "AI is now answering incoming WhatsApp messages."
-                : "Choose a number type above to continue."}
-            </div>
-          </div>
-        </div>
+      {err && <div className="text-sm text-[var(--danger)] bg-[var(--danger-soft)] border border-red-200 rounded-lg px-3 py-2">{err}</div>}
+      {ok && <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">{ok}</div>}
+
+      <div className="flex justify-end">
+        <Button onClick={save} disabled={busy}>{busy ? "Saving…" : "Save WhatsApp config"}</Button>
       </div>
     </div>
   );
 }
 
-function ShopifyWizard() {
-  const [type, setType] = useState<NumberType>("own");
-  const [stores, setStores] = useState<ShopifyStore[]>([
-    {
-      id: "s1",
-      name: "Aurora Store",
-      domain: "aurora-store.myshopify.com",
-      status: "connected",
-      products: 38,
-      orders: 142,
-    },
-  ]);
-  const [open, setOpen] = useState(false);
-  const [newStore, setNewStore] = useState({ name: "", domain: "" });
+function MetaPixelPanel() {
+  const [cfg, setCfg] = useState<MetaConfigOut | null>(null);
+  const [pixelId, setPixelId] = useState("");
+  const [token, setToken] = useState("");
+  const [testCode, setTestCode] = useState("");
+  const [defaultEvent, setDefaultEvent] = useState("InitiateCheckout");
+  const [actionSource, setActionSource] = useState("website");
+  const [busy, setBusy] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+  const [verifyResult, setVerifyResult] = useState<{ ok: boolean; status: number; response: string } | null>(null);
 
-  const addStore = () => {
-    if (!newStore.name || !newStore.domain) return;
-    const id = "s" + (stores.length + 1);
-    setStores((s) => [
-      ...s,
-      { id, name: newStore.name, domain: newStore.domain, status: "syncing", products: 0, orders: 0 },
-    ]);
-    setNewStore({ name: "", domain: "" });
-    setOpen(false);
-    setTimeout(() => {
-      setStores((s) =>
-        s.map((st) =>
-          st.id === id
-            ? { ...st, status: "connected", products: 24, orders: 87 }
-            : st
-        )
+  const load = async () => {
+    const c = await api<MetaConfigOut>("/me/meta-config");
+    setCfg(c);
+    setPixelId(c.pixel_id ?? "");
+    setTestCode(c.test_event_code ?? "");
+    setDefaultEvent(c.default_event);
+    setActionSource(c.action_source);
+  };
+
+  useEffect(() => {
+    load().catch((e) => setErr(e instanceof Error ? e.message : "Failed to load"));
+  }, []);
+
+  const save = async () => {
+    setBusy(true);
+    setErr(null);
+    setOk(null);
+    setVerifyResult(null);
+    try {
+      const body: Record<string, unknown> = { pixel_id: pixelId, default_event: defaultEvent, action_source: actionSource, test_event_code: testCode };
+      if (token) body.capi_access_token = token;
+      const next = await api<MetaConfigOut>("/me/meta-config", { method: "PUT", body });
+      setCfg(next);
+      setOk("Saved.");
+      setToken("");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const verify = async () => {
+    setVerifying(true);
+    setErr(null);
+    setOk(null);
+    setVerifyResult(null);
+    try {
+      const r = await api<{ ok: boolean; capi_status: number; capi_response: string; verified: boolean }>(
+        "/me/meta-config/verify", { method: "POST" }
       );
-    }, 1800);
+      setVerifyResult({ ok: r.ok, status: r.capi_status, response: r.capi_response });
+      if (r.ok) {
+        setOk("Verified! Meta accepted the test event.");
+        await load();
+      }
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 400) {
+        setErr("Save your Pixel ID and CAPI token first.");
+      } else {
+        setErr(e instanceof Error ? e.message : "Verify failed");
+      }
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const disconnect = async () => {
+    if (!confirm("Disconnect Meta Pixel & CAPI? Click attribution will stop.")) return;
+    setBusy(true);
+    try {
+      await api("/me/meta-config", { method: "DELETE" });
+      setCfg(null);
+      setPixelId("");
+      setToken("");
+      setTestCode("");
+      setOk("Disconnected.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Disconnect failed");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-6">
+      <header className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+          <ShieldCheck size={20} />
+        </div>
+        <div>
+          <h2 className="font-display font-semibold text-lg">Meta Pixel + Conversions API</h2>
+          <p className="text-sm text-[var(--text-secondary)]">
+            Required to attribute WhatsApp purchases back to your Meta ads.
+          </p>
+        </div>
+      </header>
+
+      <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900 flex gap-3">
+        <AlertCircle size={16} className="mt-0.5 shrink-0" />
+        <div>
+          <strong>Why both:</strong> Your Pixel ID tracks ad clicks in the browser. The
+          Conversions API token reports confirmed orders <em>server-side</em> — required
+          because the purchase happens inside WhatsApp, not on a web page. Without the CAPI
+          token, Meta sees clicks but never the conversion, breaking ad optimization.
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Input
+          label="Meta Pixel ID"
+          value={pixelId}
+          onChange={(e) => setPixelId(e.target.value)}
+          placeholder="123456789012345"
+          hint="Events Manager → your dataset → Settings"
+        />
+        <Input
+          label={cfg?.has_token ? "Conversions API Access Token (leave blank to keep existing)" : "Conversions API Access Token"}
+          type="password"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          placeholder="EAAJ…"
+          hint="Events Manager → Settings → Conversions API → Generate access token"
+        />
+        <Input
+          label="Test Event Code (optional)"
+          value={testCode}
+          onChange={(e) => setTestCode(e.target.value)}
+          placeholder="TEST12345"
+        />
+        <Select
+          label="Top-of-funnel event (fired on link click)"
+          value={defaultEvent}
+          onChange={(e) => setDefaultEvent(e.target.value)}
+          options={[
+            { value: "InitiateCheckout", label: "InitiateCheckout (recommended)" },
+            { value: "AddToCart", label: "AddToCart" },
+            { value: "ViewContent", label: "ViewContent" },
+            { value: "Lead", label: "Lead" },
+          ]}
+        />
+        <Select
+          label="CAPI action_source"
+          value={actionSource}
+          onChange={(e) => setActionSource(e.target.value)}
+          options={[
+            { value: "website", label: "website (standard)" },
+            { value: "business_messaging", label: "business_messaging (CTWA accounts)" },
+          ]}
+        />
+      </div>
+
+      {cfg && (
+        <div className="flex items-center gap-3 text-sm">
+          <Badge tone={cfg.is_capi_verified ? "success" : "neutral"} dot>
+            CAPI {cfg.is_capi_verified ? "verified" : cfg.has_token ? "not verified" : "no token"}
+          </Badge>
+          {cfg.pixel_id && <Badge tone="info">Pixel: {cfg.pixel_id}</Badge>}
+        </div>
+      )}
+
+      {verifyResult && (
+        <div
+          className={cn(
+            "text-xs rounded-lg px-3 py-2 border",
+            verifyResult.ok
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+              : "bg-red-50 border-red-200 text-red-800"
+          )}
+        >
+          Meta CAPI · HTTP {verifyResult.status} ·{" "}
+          <code className="text-[11px]">{verifyResult.response.slice(0, 250)}</code>
+        </div>
+      )}
+
+      {err && <div className="text-sm text-[var(--danger)] bg-[var(--danger-soft)] border border-red-200 rounded-lg px-3 py-2">{err}</div>}
+      {ok && !verifyResult && <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">{ok}</div>}
+
+      <div className="flex gap-2 justify-end pt-2">
+        {cfg?.pixel_id && (
+          <Button variant="outline" onClick={disconnect} disabled={busy}>
+            Disconnect
+          </Button>
+        )}
+        <Button variant="outline" onClick={verify} disabled={verifying || !cfg?.pixel_id || !cfg?.has_token}>
+          {verifying ? "Verifying…" : "Verify connection"}
+        </Button>
+        <Button onClick={save} disabled={busy}>
+          {busy ? "Saving…" : "Save"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ShopifyPanel() {
+  return (
+    <div className="space-y-6">
       <header className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
           <ShoppingBag size={20} />
         </div>
         <div>
-          <h2 className="font-display font-semibold text-lg text-[var(--text-primary)]">
-            Connect Shopify
-          </h2>
+          <h2 className="font-display font-semibold text-lg">Connect Shopify</h2>
           <p className="text-sm text-[var(--text-secondary)]">
-            Pulled products power AI answers; pulled orders trigger confirmation messages.
+            Sync product catalog + order confirmation messages. (Coming next phase.)
           </p>
         </div>
       </header>
-
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold">Step 1 · Choose number type</h3>
-          {type && (
-            <Badge tone="success" dot>
-              {type === "own" ? "Own number" : "Universal pool"}
-            </Badge>
-          )}
+      <div className="rounded-xl bg-slate-50 border border-[var(--border)] p-5 text-sm text-slate-600">
+        <div className="aspect-video rounded-xl bg-slate-900 text-white flex items-center justify-center mb-4">
+          <Play size={20} className="ml-0.5 fill-current" />
         </div>
-        <NumberTypeChoice value={type} onChange={setType} />
-        <p className="text-xs text-[var(--text-muted)] mt-3 leading-relaxed">
-          Note: Shopify confirmation messages still need a webhook regardless of which
-          number type you choose.
-        </p>
-      </div>
-
-      <div className="border-t border-[var(--border)] pt-5">
-        <h3 className="text-sm font-semibold mb-3">Step 2 · Connect store(s)</h3>
-        <div className="grid md:grid-cols-2 gap-5">
-          <div className="space-y-3">
-            <CopyField
-              label="Webhook URL"
-              value="https://api.arabia-ai.com/shopify/wh/aurora/abf7-2k38l"
-            />
-            <div className="rounded-lg bg-slate-50 p-3 text-xs text-[var(--text-secondary)]">
-              Add this webhook in your Shopify admin under{" "}
-              <span className="text-slate-700 font-medium">
-                Settings → Notifications → Webhooks
-              </span>{" "}
-              for events: <em>Order creation, Order updated, Product update.</em>
-            </div>
-          </div>
-          <div className="aspect-video rounded-xl bg-slate-900 text-white flex items-center justify-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-violet-600/20 to-transparent" />
-            <button className="relative w-14 h-14 rounded-full bg-white text-violet-600 flex items-center justify-center shadow-lg">
-              <Play size={20} className="ml-0.5 fill-current" />
-            </button>
-            <div className="absolute bottom-3 left-4 text-xs text-white/80">
-              Video guide · Add webhook to Shopify
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold">Connected stores</div>
-            <Button
-              size="sm"
-              variant="outline"
-              leftIcon={<Plus size={14} />}
-              onClick={() => setOpen(true)}
-            >
-              Add another store
-            </Button>
-          </div>
-          {stores.map((s) => (
-            <div
-              key={s.id}
-              className="flex items-center gap-4 p-3 rounded-xl border border-[var(--border)] bg-white"
-            >
-              <div className="w-9 h-9 rounded-lg bg-violet-100 text-violet-700 flex items-center justify-center">
-                <Store size={16} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate">{s.name}</div>
-                <div className="text-xs text-[var(--text-secondary)] truncate">
-                  {s.domain}
-                </div>
-              </div>
-              {s.status === "connected" ? (
-                <div className="text-xs text-[var(--text-secondary)] text-right">
-                  <Badge tone="success" dot>
-                    Connected
-                  </Badge>
-                  <div className="mt-1">
-                    Pulled {s.orders} orders · {s.products} products
-                  </div>
-                </div>
-              ) : (
-                <Badge tone="info">Syncing…</Badge>
-              )}
-              <button className="text-xs text-slate-500 hover:text-red-600 ml-2">
-                Disconnect
-              </button>
-            </div>
-          ))}
+        Shopify webhook integration ships in the next backend phase. For now, products
+        added manually here power the AI's answers and ad-link flow.
+        <div className="mt-3">
+          <Badge tone="warning">Coming soon</Badge>
         </div>
       </div>
-
-      <div className="border-t border-[var(--border)] pt-5">
-        <h3 className="text-sm font-semibold mb-2">Step 3 · How it works</h3>
-        <ul className="text-sm text-[var(--text-secondary)] space-y-1.5">
-          <li>• Pulled <strong className="text-[var(--text-primary)]">products</strong> become part of the AI's knowledge base.</li>
-          <li>• Pulled <strong className="text-[var(--text-primary)]">orders</strong> trigger automated WhatsApp confirmation messages.</li>
-          <li>• Multi-store routing is automatic — we tag each order with its source store.</li>
-        </ul>
-      </div>
-
-      <Modal
-        open={open}
-        onClose={() => setOpen(false)}
-        title="Add Shopify store"
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={addStore}>Connect store</Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="Store name"
-            placeholder="My Boutique"
-            value={newStore.name}
-            onChange={(e) => setNewStore((s) => ({ ...s, name: e.target.value }))}
-          />
-          <Input
-            label="Store domain"
-            placeholder="my-boutique.myshopify.com"
-            value={newStore.domain}
-            onChange={(e) => setNewStore((s) => ({ ...s, domain: e.target.value }))}
-          />
-          <CopyField
-            label="Use this webhook URL in Shopify"
-            value="https://api.arabia-ai.com/shopify/wh/aurora/new-store"
-          />
-        </div>
-      </Modal>
     </div>
   );
 }
