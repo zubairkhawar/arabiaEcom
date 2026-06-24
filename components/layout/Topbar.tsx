@@ -1,15 +1,16 @@
 "use client";
 
-import { Bell, Calendar, Globe, ChevronDown, Repeat, LogOut } from "lucide-react";
+import { Bell, Calendar, Globe, ChevronDown, LogOut, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { useRole } from "@/lib/role";
 
 export function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
-  const { role, toggle, userName, userEmail, signOut } = useRole();
+  const { role, userName, userEmail, signOut } = useRole();
   const [menuOpen, setMenuOpen] = useState(false);
   const router = useRouter();
+
   return (
     <header className="sticky top-0 z-30 bg-[var(--bg-app)]/80 backdrop-blur border-b border-[var(--border)] px-6 lg:px-8 py-4">
       <div className="flex items-center justify-between gap-4">
@@ -46,7 +47,8 @@ export function Topbar({ title, subtitle }: { title: string; subtitle?: string }
                 <span className="block text-xs font-medium text-[var(--text-primary)] leading-tight">
                   {userName}
                 </span>
-                <span className="block text-[10px] text-[var(--text-muted)] capitalize">
+                <span className="block text-[10px] text-[var(--text-muted)] capitalize flex items-center gap-1">
+                  {role === "admin" && <ShieldCheck size={9} />}
                   {role}
                 </span>
               </span>
@@ -59,17 +61,12 @@ export function Topbar({ title, subtitle }: { title: string; subtitle?: string }
                     {userName}
                   </div>
                   <div className="text-xs text-[var(--text-secondary)]">{userEmail}</div>
+                  {role === "admin" && (
+                    <div className="mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full">
+                      <ShieldCheck size={10} /> Platform admin
+                    </div>
+                  )}
                 </div>
-                <button
-                  onClick={() => {
-                    toggle();
-                    setMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <Repeat size={15} />
-                  View as {role === "admin" ? "Reseller" : "Admin"}
-                </button>
                 <div className="border-t border-[var(--border)]">
                   <button
                     onClick={() => {

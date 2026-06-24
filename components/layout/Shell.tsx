@@ -5,7 +5,7 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { useEffect } from "react";
 import { useRole } from "@/lib/role";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export function Shell({
   children,
@@ -18,29 +18,32 @@ export function Shell({
   subtitle?: string;
   portal: "reseller" | "admin";
 }) {
-  const { role, setRole, profile, loading } = useRole();
-  const pathname = usePathname();
+  const { profile, loading, role } = useRole();
   const router = useRouter();
 
-  // Redirect to login when there's no session
+  // No session → login
   useEffect(() => {
     if (!loading && !profile) router.replace("/");
   }, [loading, profile, router]);
 
-  // Sync role with the current route prefix
+  // Wrong portal for this role → bounce to the right one.
+  // A reseller cannot enter /admin/*, an admin cannot enter /reseller/*.
   useEffect(() => {
-    if (role !== portal) setRole(portal);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [portal]);
+    if (loading || !profile) return;
+    if (portal === "admin" && role !== "admin") {
+      router.replace("/reseller");
+    } else if (portal === "reseller" && role === "admin") {
+      router.replace("/admin");
+    }
+  }, [loading, profile, role, portal, router]);
 
-  // Allow topbar toggle to hop portals
-  useEffect(() => {
-    if (role === "admin" && pathname.startsWith("/reseller")) router.push("/admin");
-    if (role === "reseller" && pathname.startsWith("/admin")) router.push("/reseller");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role]);
+  const wrongPortal =
+    !loading && profile && (
+      (portal === "admin" && role !== "admin") ||
+      (portal === "reseller" && role === "admin")
+    );
 
-  if (loading || !profile) {
+  if (loading || !profile || wrongPortal) {
     return (
       <div className="min-h-screen flex items-center justify-center text-sm text-[var(--text-secondary)]">
         Loading…

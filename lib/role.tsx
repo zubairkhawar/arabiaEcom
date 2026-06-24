@@ -24,8 +24,6 @@ interface ResellerProfile {
 
 interface RoleContextValue {
   role: Role;
-  setRole: (r: Role) => void;
-  toggle: () => void;
   userName: string;
   userEmail: string;
   profile: ResellerProfile | null;
@@ -45,7 +43,6 @@ interface RoleContextValue {
 const RoleContext = createContext<RoleContextValue | null>(null);
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [role, setRoleState] = useState<Role>("reseller");
   const [profile, setProfile] = useState<ResellerProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -59,7 +56,6 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     try {
       const me = await api<ResellerProfile>("/auth/me");
       setProfile(me);
-      setRoleState(me.role);
     } catch {
       setToken(null);
       setProfile(null);
@@ -72,12 +68,6 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     loadProfile();
   }, [loadProfile]);
 
-  const setRole = useCallback((r: Role) => setRoleState(r), []);
-  const toggle = useCallback(
-    () => setRoleState((r) => (r === "reseller" ? "admin" : "reseller")),
-    []
-  );
-
   const signIn = useCallback(async (email: string, password: string) => {
     const res = await api<{ access_token: string; reseller: ResellerProfile }>(
       "/auth/login",
@@ -85,7 +75,6 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     );
     setToken(res.access_token);
     setProfile(res.reseller);
-    setRoleState(res.reseller.role);
     return res.reseller;
   }, []);
 
@@ -101,7 +90,6 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       );
       setToken(res.access_token);
       setProfile(res.reseller);
-      setRoleState(res.reseller.role);
       return res.reseller;
     },
     []
@@ -112,11 +100,11 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   }, []);
 
+  const role: Role = profile?.role ?? "reseller";
+
   const value: RoleContextValue = {
     role,
-    setRole,
-    toggle,
-    userName: profile?.name ?? (role === "admin" ? "Admin" : "Demo Reseller"),
+    userName: profile?.name ?? "",
     userEmail: profile?.email ?? "",
     profile,
     loading,

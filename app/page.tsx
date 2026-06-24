@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/Input";
@@ -9,13 +9,20 @@ import { useRole } from "@/lib/role";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn, signUp } = useRole();
+  const { signIn, signUp, profile, loading } = useRole();
   const [mode, setMode] = useState<"login" | "signup">("login");
-  const [email, setEmail] = useState("demo@arabia-ai.com");
-  const [password, setPassword] = useState("demo123!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Already signed in? Bounce to the right portal.
+  useEffect(() => {
+    if (!loading && profile) {
+      router.replace(profile.role === "admin" ? "/admin" : "/reseller");
+    }
+  }, [loading, profile, router]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,12 +157,6 @@ export default function LoginPage() {
               </>
             )}
           </p>
-          {mode === "login" && (
-            <p className="text-[11px] text-[var(--text-muted)] text-center mt-3">
-              Demo: <code className="text-[var(--text-secondary)]">demo@arabia-ai.com</code> /{" "}
-              <code className="text-[var(--text-secondary)]">demo123!</code>
-            </p>
-          )}
         </form>
       </div>
     </div>
