@@ -22,6 +22,7 @@ interface ChatSummary {
   unread: number;
   last_message: string | null;
   last_message_at: string | null;
+  reseller_name?: string;
 }
 
 interface MessageOut {
@@ -47,7 +48,7 @@ interface ChatDetail {
   messages: MessageOut[];
 }
 
-export function LiveChatPanel() {
+export function LiveChatPanel({ scope = "reseller" }: { scope?: "reseller" | "admin" }) {
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [active, setActive] = useState<ChatDetail | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -57,10 +58,11 @@ export function LiveChatPanel() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const listEndpoint = scope === "admin" ? "/admin/chats" : "/chats";
 
   const loadList = async () => {
     try {
-      const rows = await api<ChatSummary[]>("/chats");
+      const rows = await api<ChatSummary[]>(listEndpoint);
       setChats(rows);
       if (!activeId && rows.length > 0) {
         setActiveId(rows[0].id);
@@ -201,6 +203,11 @@ export function LiveChatPanel() {
                     <div className="text-xs text-[var(--text-secondary)] truncate mt-0.5">
                       {c.last_message ?? "—"}
                     </div>
+                    {c.reseller_name && (
+                      <div className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                        {c.reseller_name}
+                      </div>
+                    )}
                   </div>
                   {c.unread > 0 && (
                     <span className="bg-[var(--accent)] text-white text-[10px] font-semibold px-1.5 rounded-full min-w-[18px] text-center">

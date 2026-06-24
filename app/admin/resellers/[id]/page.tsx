@@ -1,51 +1,62 @@
 "use client";
 
-import { use } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ShieldAlert, UserCog } from "lucide-react";
+import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { Shell } from "@/components/layout/Shell";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
 import { Badge, statusTone } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { Input, Select } from "@/components/ui/Input";
-import { Toggle } from "@/components/ui/Toggle";
-import { resellerById } from "@/lib/mock/resellers";
-import { orders } from "@/lib/mock/orders";
-import { chats } from "@/lib/mock/chats";
-import { money, num, relTime } from "@/lib/format";
-import { notFound } from "next/navigation";
-import { customerById } from "@/lib/mock/customers";
-import { useState } from "react";
+import { api } from "@/lib/api";
+import { money, num, relTime, shortDate } from "@/lib/format";
+import type { AdminOrderRow, ResellerSummary } from "@/lib/types";
 
-export default function ResellerDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+interface SummaryResp {
+  reseller: ResellerSummary;
+  orders_count: number;
+  revenue: number;
+  clicks: number;
+}
+
+export default function ResellerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const r = resellerById(id);
-  if (!r) return notFound();
-  const myOrders = orders.filter((o) => o.resellerId === r.id);
-  const myChats = chats.filter((c) => c.resellerId === r.id);
-  const [convince, setConvince] = useState(true);
+  const [data, setData] = useState<SummaryResp | null>(null);
+  const [orders, setOrders] = useState<AdminOrderRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [d, o] = await Promise.all([
+        api<SummaryResp>(`/admin/resellers/${id}/summary`),
+        api<AdminOrderRow[]>(`/admin/orders?reseller_id=${id}`),
+      ]);
+      setData(d);
+      setOrders(o);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, [id]);
+
+  if (loading) return <Shell portal="admin" title="Reseller"><div className="text-sm">Loading…</div></Shell>;
+  if (err || !data) return <Shell portal="admin" title="Reseller"><div className="text-sm text-[var(--danger)]">{err || "not found"}</div></Shell>;
+
+  const r = data.reseller;
 
   return (
-    <Shell
-      portal="admin"
-      title={r.name}
-      subtitle="Admin is viewing this account on behalf of the reseller."
-    >
+    <Shell portal="admin" title={r.name} subtitle="Admin view of this reseller's account.">
       <div className="mb-5 flex items-center justify-between">
-        <Link
-          href="/admin/resellers"
-          className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-        >
+        <Link href="/admin/resellers" className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
           <ArrowLeft size={14} /> All resellers
         </Link>
         <div className="inline-flex items-center gap-2 bg-amber-50 text-amber-800 border border-amber-200 rounded-full px-3 py-1.5 text-xs">
-          <ShieldAlert size={14} /> You are viewing this portal as <strong>{r.name}</strong>
+          <ShieldAlert size={14} /> You are viewing as <strong>{r.name}</strong>
         </div>
       </div>
 
@@ -57,89 +68,49 @@ export default function ResellerDetailPage({
             <div className="text-sm text-[var(--text-secondary)]">{r.email}</div>
             <div className="flex items-center gap-2 mt-2">
               <Badge tone="neutral">{r.plan}</Badge>
-              <Badge tone={statusTone(r.status)} dot>
-                {r.status}
-              </Badge>
-              {r.channels.includes("whatsapp") && <Badge tone="success">WhatsApp</Badge>}
-              {r.channels.includes("shopify") && <Badge tone="violet">Shopify</Badge>}
-              <span className="text-xs text-[var(--text-muted)]">
-                Last active {relTime(r.lastActive)}
-              </span>
+              <Badge tone={statusTone(r.status)} dot>{r.status}</Badge>
+              <span className="text-xs text-[var(--text-muted)]">Joined {relTime(r.created_at)}</span>
             </div>
           </div>
-          <Button variant="outline" leftIcon={<UserCog size={14} />}>
-            Sign in as reseller
-          </Button>
+          {r.status === "active" ? (
+            <Button variant="outline" onClick={async () => { await api(`/admin/resellers/${r.id}/suspend`, { method: "POST" }); await load(); }}>
+              Suspend
+            </Button>
+          ) : r.status === "suspended" ? (
+            <Button onClick={async () => { await api(`/admin/resellers/${r.id}/reactivate`, { method: "POST" }); await load(); }}>
+              Reactivate
+            </Button>
+          ) : null}
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Revenue" value={money(r.revenue)} delta={18.4} icon={<></>} />
-        <StatCard label="Orders" value={num(r.ordersCount)} delta={11.2} icon={<></>} />
-        <StatCard label="Products" value={num(r.productsCount)} delta={4.1} icon={<></>} />
-        <StatCard label="Chats (7d)" value={num(myChats.length * 18)} delta={9.7} icon={<></>} />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <StatCard label="Revenue (confirmed)" value={money(data.revenue, r.currency)} delta={0} caption="" />
+        <StatCard label="Orders" value={num(data.orders_count)} delta={0} caption="" />
+        <StatCard label="Ad clicks" value={num(data.clicks)} delta={0} caption="" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader title="Recent orders" />
+      <Card>
+        <CardHeader title="Recent orders" />
+        {orders.length === 0 ? (
+          <div className="text-sm text-[var(--text-secondary)] p-4">No orders yet for this reseller.</div>
+        ) : (
           <ul className="divide-y divide-[var(--border)]">
-            {myOrders.slice(0, 8).map((o) => {
-              const cust = customerById(o.customerId);
-              return (
-                <li key={o.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                  <div className="text-xs font-mono w-20 text-[var(--text-secondary)]">
-                    {o.id}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{cust?.name}</div>
-                    <div className="text-xs text-[var(--text-secondary)] truncate">
-                      {o.source}
-                    </div>
-                  </div>
-                  <div className="text-sm font-semibold">{money(o.amount, o.currency)}</div>
-                  <Badge tone={statusTone(o.status)} dot>
-                    {o.status}
-                  </Badge>
-                </li>
-              );
-            })}
+            {orders.slice(0, 12).map((o) => (
+              <li key={o.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                <div className="text-xs font-mono w-24 text-[var(--text-secondary)]">{o.code}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{o.customer_name || "—"}</div>
+                  <div className="text-xs text-[var(--text-secondary)] truncate">{o.source ?? o.customer_phone}</div>
+                </div>
+                <div className="text-sm font-semibold">{money(o.amount, o.currency)}</div>
+                <Badge tone={statusTone(o.status)} dot>{o.status}</Badge>
+                <span className="text-xs text-[var(--text-muted)]">{shortDate(o.created_at)}</span>
+              </li>
+            ))}
           </ul>
-        </Card>
-
-        <Card>
-          <CardHeader title="Edit reseller settings" subtitle="Admin overrides" />
-          <div className="space-y-4">
-            <Input label="AI name" defaultValue="Max" />
-            <Select
-              label="Tone"
-              defaultValue="Friendly"
-              options={[
-                { value: "Friendly", label: "Friendly" },
-                { value: "Professional", label: "Professional" },
-                { value: "Playful", label: "Playful" },
-                { value: "Direct", label: "Direct" },
-              ]}
-            />
-            <Select
-              label="Number type"
-              defaultValue="own"
-              options={[
-                { value: "own", label: "Own number" },
-                { value: "universal", label: "Universal pool" },
-              ]}
-            />
-            <Input label="Monthly conversation limit" defaultValue="Unlimited" />
-            <Toggle
-              checked={convince}
-              onChange={setConvince}
-              label="Convince hesitant customers"
-              description="Force-enable the persuasion behavior."
-            />
-            <Button className="w-full">Save overrides</Button>
-          </div>
-        </Card>
-      </div>
+        )}
+      </Card>
     </Shell>
   );
 }
