@@ -12,11 +12,13 @@ export function Shell({
   title,
   subtitle,
   portal,
+  showFilters = false,
 }: {
   children: ReactNode;
   title: string;
   subtitle?: string;
   portal: "reseller" | "admin";
+  showFilters?: boolean;
 }) {
   const { profile, loading, role } = useRole();
   const router = useRouter();
@@ -55,7 +57,7 @@ export function Shell({
     <div className="flex min-h-screen bg-[var(--bg-app)]">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <Topbar title={title} subtitle={subtitle} />
+        <Topbar title={title} subtitle={subtitle} showFilters={showFilters} />
         <main className="flex-1 px-6 lg:px-8 py-6 lg:py-8">{children}</main>
       </div>
     </div>

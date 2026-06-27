@@ -7,7 +7,15 @@ import { Avatar } from "@/components/ui/Avatar";
 import { useRole } from "@/lib/role";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 
-export function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
+export function Topbar({
+  title,
+  subtitle,
+  showFilters = false,
+}: {
+  title: string;
+  subtitle?: string;
+  showFilters?: boolean;
+}) {
   const { role, userName, userEmail, signOut } = useRole();
   const [menuOpen, setMenuOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
@@ -25,15 +33,19 @@ export function Topbar({ title, subtitle }: { title: string; subtitle?: string }
           )}
         </div>
         <div className="flex items-center gap-2 md:gap-3">
-          <button className="hidden md:inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-[var(--border)] bg-white text-sm text-slate-700 hover:bg-slate-50">
-            <Calendar size={15} />
-            <span>Last 7 days</span>
-            <ChevronDown size={14} className="text-slate-400" />
-          </button>
-          <button className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[var(--border)] bg-white text-sm text-slate-700 hover:bg-slate-50">
-            <Globe size={15} />
-            <span>EN</span>
-          </button>
+          {showFilters && (
+            <>
+              <button className="hidden md:inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-[var(--border)] bg-white text-sm text-slate-700 hover:bg-slate-50">
+                <Calendar size={15} />
+                <span>Last 7 days</span>
+                <ChevronDown size={14} className="text-slate-400" />
+              </button>
+              <button className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[var(--border)] bg-white text-sm text-slate-700 hover:bg-slate-50">
+                <Globe size={15} />
+                <span>EN</span>
+              </button>
+            </>
+          )}
           <button className="relative h-9 w-9 rounded-lg border border-[var(--border)] bg-white flex items-center justify-center hover:bg-slate-50">
             <Bell size={16} className="text-slate-600" />
             <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--accent)] ring-2 ring-white" />

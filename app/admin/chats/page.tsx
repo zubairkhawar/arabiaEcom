@@ -7,6 +7,7 @@ export default function AllChatsPage() {
       portal="admin"
       title="All Chats"
       subtitle="Every conversation across every reseller. You can take over any chat."
+      showFilters
     >
       <LiveChatPanel scope="admin" />
     </Shell>

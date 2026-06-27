@@ -78,18 +78,6 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="px-3 pb-4 pt-3 border-t border-slate-800">
-        <div className="rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20 p-3">
-          <div className="text-xs text-emerald-300 font-medium">
-            {role === "admin" ? "Platform health" : "AI is running"}
-          </div>
-          <div className="text-xs text-slate-400 mt-1 leading-snug">
-            {role === "admin"
-              ? "All 9 universal numbers online · 142 resellers active"
-              : "Max is online and replying in 3 languages."}
-          </div>
-        </div>
-      </div>
     </aside>
   );
 }

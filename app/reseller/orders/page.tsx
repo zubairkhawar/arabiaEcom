@@ -134,7 +134,7 @@ export default function OrdersPage() {
   ];
 
   return (
-    <Shell portal="reseller" title="Orders" subtitle={`${rows.length} of ${orders.length} orders`}>
+    <Shell portal="reseller" title="Orders" subtitle={`${rows.length} of ${orders.length} orders`} showFilters>
       <Card padded={false}>
         <div className="p-4 md:p-5 border-b border-[var(--border)] flex flex-wrap items-center gap-3">
           <div className="flex-1 min-w-[220px]">

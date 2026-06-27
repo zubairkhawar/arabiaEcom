@@ -7,6 +7,7 @@ export default function ChatsPage() {
       portal="reseller"
       title="Live Chats"
       subtitle="AI handles every chat by default — take over with one click."
+      showFilters
     >
       <LiveChatPanel />
     </Shell>

@@ -31,7 +31,7 @@ export default function AdminDashboard() {
   if (err || !data) return <Shell portal="admin" title="Platform Dashboard"><div className="text-sm text-[var(--danger)]">{err || "no data"}</div></Shell>;
 
   return (
-    <Shell portal="admin" title="Platform Dashboard" subtitle="Live rollup across all resellers, channels, and pool numbers.">
+    <Shell portal="admin" title="Platform Dashboard" subtitle="Live rollup across all resellers, channels, and pool numbers." showFilters>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="Total Resellers" value={num(data.total_resellers.value)} delta={data.total_resellers.delta} icon={<Users size={18} />} />
         <StatCard label="Active WhatsApp" value={num(data.active_whatsapp.value)} delta={data.active_whatsapp.delta} icon={<MessageSquare size={18} />} />

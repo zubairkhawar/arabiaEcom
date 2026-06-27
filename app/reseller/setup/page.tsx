@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/Badge";
 import { api, ApiError, API_BASE } from "@/lib/api";
 import { useRole } from "@/lib/role";
 import { cn } from "@/lib/cn";
+import { WhatsAppTutorial } from "@/components/setup/WhatsAppTutorial";
 
 type NumberType = "own" | "universal";
 
@@ -214,13 +215,7 @@ function WhatsAppWizard() {
 
       {type === "own" ? (
         <div className="space-y-5">
-          <div className="rounded-xl bg-slate-50 border border-[var(--border)] p-4 flex gap-3">
-            <HelpCircle size={16} className="text-[var(--accent)] mt-0.5 shrink-0" />
-            <div className="text-sm text-slate-700">
-              Grab these from Meta Business Suite → WhatsApp Manager → API setup. After
-              saving, point Meta's webhook to the URL below.
-            </div>
-          </div>
+          <WhatsAppTutorial />
 
           <div className="grid md:grid-cols-2 gap-4">
             <Input label="WhatsApp Business Account ID" value={waba} onChange={(e) => setWaba(e.target.value)} placeholder="1234567890123456" />

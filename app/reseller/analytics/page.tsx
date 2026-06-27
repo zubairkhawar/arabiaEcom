@@ -55,7 +55,7 @@ export default function AnalyticsPage() {
   const allZero = tracking.total_clicks === 0 && tracking.total_orders === 0;
 
   return (
-    <Shell portal="reseller" title="Analytics" subtitle="Live data from your orders, chats, and ad clicks.">
+    <Shell portal="reseller" title="Analytics" subtitle="Live data from your orders, chats, and ad clicks." showFilters>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="lg:col-span-2">
           <CardHeader title="Conversations & Orders over time" subtitle="Last 7 days" />

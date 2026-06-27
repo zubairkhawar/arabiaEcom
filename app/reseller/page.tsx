@@ -97,6 +97,7 @@ export default function ResellerDashboard() {
       portal="reseller"
       title="Dashboard"
       subtitle="Real-time view of your channels — pulled from live data."
+      showFilters
     >
       {/* Onboarding banner */}
       {completed < onboarding.length && (

@@ -63,7 +63,7 @@ export default function AllOrdersPage() {
   ];
 
   return (
-    <Shell portal="admin" title="All Orders" subtitle={`${rows.length} orders across ${resellers.length} resellers`}>
+    <Shell portal="admin" title="All Orders" subtitle={`${rows.length} orders across ${resellers.length} resellers`} showFilters>
       <Card padded={false}>
         <div className="p-4 md:p-5 border-b border-[var(--border)] flex flex-wrap items-center gap-3">
           <div className="flex-1 min-w-[220px]">
