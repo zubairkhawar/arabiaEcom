@@ -9,8 +9,9 @@ import { Badge, statusTone } from "@/components/ui/Badge";
 import { Input, Select } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { api } from "@/lib/api";
+import { api, API_BASE } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { CopyField } from "@/components/ui/CopyField";
 import type { PoolNumberOut, PoolAssignmentOut } from "@/lib/types";
 
 export default function NumberPoolPage() {
@@ -105,7 +106,8 @@ export default function NumberPoolPage() {
                       {nums.map((n) => {
                         const used = n.capacity > 0 ? (n.assigned / n.capacity) * 100 : 0;
                         return (
-                          <div key={n.id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                          <div key={n.id} className="px-5 py-4 flex flex-col gap-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center"><Phone size={15} /></div>
                               <div className="min-w-0">
@@ -134,6 +136,13 @@ export default function NumberPoolPage() {
                                 {n.status === "disabled" ? "Enable" : "Disable"}
                               </button>
                             </div>
+                            </div>
+                            {n.has_token && (
+                              <CopyField
+                                label="Meta webhook URL — paste in WhatsApp Manager"
+                                value={`${API_BASE}/webhooks/wa/pool/${n.id}`}
+                              />
+                            )}
                           </div>
                         );
                       })}
