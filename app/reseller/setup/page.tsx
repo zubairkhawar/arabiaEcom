@@ -24,6 +24,9 @@ import { api, ApiError, API_BASE } from "@/lib/api";
 import { useRole } from "@/lib/role";
 import { cn } from "@/lib/cn";
 import { WhatsAppTutorial } from "@/components/setup/WhatsAppTutorial";
+import { MetaTutorial } from "@/components/setup/MetaTutorial";
+import { ShopifyTutorial } from "@/components/setup/ShopifyTutorial";
+import { WhatsAppLogo, MetaLogo, ShopifyLogo } from "@/components/brand/BrandLogos";
 
 type NumberType = "own" | "universal";
 
@@ -188,9 +191,7 @@ function WhatsAppWizard() {
   return (
     <div className="space-y-7">
       <header className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-          <MessageCircle size={20} />
-        </div>
+        <WhatsAppLogo size={40} />
         <div>
           <h2 className="font-display font-semibold text-lg text-[var(--text-primary)]">
             Connect WhatsApp
@@ -343,9 +344,7 @@ function MetaPixelPanel() {
   return (
     <div className="space-y-6">
       <header className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
-          <ShieldCheck size={20} />
-        </div>
+        <MetaLogo size={40} />
         <div>
           <h2 className="font-display font-semibold text-lg">Meta Pixel + Conversions API</h2>
           <p className="text-sm text-[var(--text-secondary)]">
@@ -353,6 +352,8 @@ function MetaPixelPanel() {
           </p>
         </div>
       </header>
+
+      <MetaTutorial />
 
       <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900 flex gap-3">
         <AlertCircle size={16} className="mt-0.5 shrink-0" />
@@ -451,30 +452,186 @@ function MetaPixelPanel() {
   );
 }
 
+interface ShopifyStoreOut {
+  id: string;
+  name: string;
+  shop_domain: string;
+  api_version: string;
+  verified: boolean;
+  last_sync_at: string | null;
+  products_synced: number;
+}
+
 function ShopifyPanel() {
+  const [stores, setStores] = useState<ShopifyStoreOut[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState<string | null>(null);
+
+  // Add-store form
+  const [name, setName] = useState("");
+  const [domain, setDomain] = useState("");
+  const [token, setToken] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const rows = await api<ShopifyStoreOut[]>("/me/shopify/stores");
+      setStores(rows);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, []);
+
+  const connect = async () => {
+    setBusy(true); setErr(null); setOk(null);
+    try {
+      await api("/me/shopify/stores", {
+        method: "POST",
+        body: { name, shop_domain: domain, access_token: token },
+      });
+      setName(""); setDomain(""); setToken("");
+      setShowAdd(false);
+      setOk("Store connected. Click 'Sync products' to pull your catalogue.");
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Connect failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disconnect = async (id: string) => {
+    if (!confirm("Disconnect this store? Product sync will stop. Existing synced products stay.")) return;
+    await api(`/me/shopify/stores/${id}`, { method: "DELETE" });
+    await load();
+  };
+
+  const sync = async (id: string) => {
+    setSyncing(id); setErr(null); setOk(null);
+    try {
+      const r = await api<{ fetched: number; created: number; updated: number; skipped: number }>(
+        `/me/shopify/stores/${id}/sync`, { method: "POST" }
+      );
+      setOk(`Synced — fetched ${r.fetched}, created ${r.created}, updated ${r.updated}${r.skipped ? `, skipped ${r.skipped}` : ""}.`);
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setSyncing(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <header className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
-          <ShoppingBag size={20} />
-        </div>
+        <ShopifyLogo size={40} />
         <div>
           <h2 className="font-display font-semibold text-lg">Connect Shopify</h2>
           <p className="text-sm text-[var(--text-secondary)]">
-            Sync product catalog + order confirmation messages. (Coming next phase.)
+            Sync your product catalogue so the AI can answer customer questions about every
+            item. Connect one or many stores — each gets its own sync.
           </p>
         </div>
       </header>
-      <div className="rounded-xl bg-slate-50 border border-[var(--border)] p-5 text-sm text-slate-600">
-        <div className="aspect-video rounded-xl bg-slate-900 text-white flex items-center justify-center mb-4">
-          <Play size={20} className="ml-0.5 fill-current" />
+
+      <ShopifyTutorial />
+
+      {/* Connected stores */}
+      {loading ? (
+        <div className="text-sm text-[var(--text-secondary)]">Loading stores…</div>
+      ) : stores.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-[var(--border)] bg-slate-50 p-5 text-center text-sm text-[var(--text-secondary)]">
+          No Shopify store connected yet. Follow the steps above, then click
+          <strong> Connect a store</strong> below.
         </div>
-        Shopify webhook integration ships in the next backend phase. For now, products
-        added manually here power the AI's answers and ad-link flow.
-        <div className="mt-3">
-          <Badge tone="warning">Coming soon</Badge>
+      ) : (
+        <div className="space-y-3">
+          {stores.map((s) => (
+            <div key={s.id} className="rounded-xl border border-[var(--border)] bg-white p-4 flex flex-col md:flex-row md:items-center gap-3">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <ShopifyLogo size={32} />
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">{s.name}</div>
+                  <div className="text-xs text-[var(--text-secondary)] truncate">
+                    {s.shop_domain} · API {s.api_version}
+                  </div>
+                  <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                    {s.products_synced > 0 ? `${s.products_synced} products synced` : "Not synced yet"}
+                    {s.last_sync_at && ` · last ${new Date(s.last_sync_at).toLocaleString()}`}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge tone="success" dot>connected</Badge>
+                <Button
+                  variant="outline" size="sm"
+                  onClick={() => sync(s.id)}
+                  disabled={syncing === s.id}
+                >
+                  {syncing === s.id ? "Syncing…" : "Sync products"}
+                </Button>
+                <button
+                  onClick={() => disconnect(s.id)}
+                  className="text-xs text-slate-500 hover:text-red-600 px-2"
+                >
+                  Disconnect
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
+      )}
+
+      {/* Add new store */}
+      {!showAdd ? (
+        <Button variant="outline" onClick={() => setShowAdd(true)}>
+          + Connect a store
+        </Button>
+      ) : (
+        <div className="rounded-xl border border-[var(--border)] bg-white p-5 space-y-4">
+          <div className="text-sm font-semibold">Connect a new Shopify store</div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <Input
+              label="Store name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="My Aurora Store"
+            />
+            <Input
+              label="Shop domain"
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              placeholder="aurora-store or aurora-store.myshopify.com"
+            />
+            <div className="md:col-span-2">
+              <Input
+                label="Admin API access token"
+                type="password"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="shpat_…"
+                hint="Generated in Shopify admin → Apps → Develop apps → your app → API credentials."
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => { setShowAdd(false); setName(""); setDomain(""); setToken(""); }}>Cancel</Button>
+            <Button onClick={connect} disabled={busy || !domain || !token || !name}>
+              {busy ? "Validating with Shopify…" : "Connect store"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {err && <div className="text-sm text-[var(--danger)] bg-[var(--danger-soft)] border border-red-200 rounded-lg px-3 py-2">{err}</div>}
+      {ok && <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">{ok}</div>}
     </div>
   );
 }
