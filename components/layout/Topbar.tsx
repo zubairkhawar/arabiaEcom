@@ -1,12 +1,13 @@
 "use client";
 
-import { Bell, Calendar, ChevronDown, LogOut, ShieldCheck, KeyRound } from "lucide-react";
+import { Calendar, ChevronDown, LogOut, ShieldCheck, KeyRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { useRole } from "@/lib/role";
 import { useDateRange, RANGE_OPTIONS, type RangeValue } from "@/lib/dateRange";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
+import { NotificationsDropdown } from "@/components/NotificationsDropdown";
 
 export function Topbar({
   title,
@@ -78,10 +79,7 @@ export function Topbar({
               )}
             </div>
           )}
-          <button className="relative h-9 w-9 rounded-lg border border-[var(--border)] bg-white flex items-center justify-center hover:bg-slate-50">
-            <Bell size={16} className="text-slate-600" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--accent)] ring-2 ring-white" />
-          </button>
+          <NotificationsDropdown />
 
           <div className="relative">
             <button

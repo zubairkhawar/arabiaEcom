@@ -13,13 +13,15 @@ import { useDateRange } from "@/lib/dateRange";
 import { cn } from "@/lib/cn";
 import { relTime, money } from "@/lib/format";
 
+type ChatMode = "ai" | "human" | "pending_human";
+
 interface ChatSummary {
   id: string;
   customer_id: string;
   customer_name: string | null;
   customer_phone: string;
   channel: string;
-  mode: "ai" | "human";
+  mode: ChatMode;
   unread: number;
   last_message: string | null;
   last_message_at: string | null;
@@ -42,7 +44,7 @@ interface ChatDetail {
   customer_total_orders: number;
   customer_total_spent: number;
   channel: string;
-  mode: "ai" | "human";
+  mode: ChatMode;
   click_session_id: string | null;
   src_platform: string | null;
   draft_items: Array<Record<string, unknown>>;
@@ -248,14 +250,23 @@ export function LiveChatPanel({ scope = "reseller" }: { scope?: "reseller" | "ad
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {active.mode === "ai" ? (
+                {active.mode === "ai" && (
                   <>
                     <Badge tone="success" dot>AI is handling</Badge>
                     <Button variant="outline" size="sm" leftIcon={<UserRound size={14} />} onClick={() => setMode("human")} disabled={busy}>
                       Take over
                     </Button>
                   </>
-                ) : (
+                )}
+                {active.mode === "pending_human" && (
+                  <>
+                    <Badge tone="warning" dot>Customer asked for a real agent</Badge>
+                    <Button size="sm" leftIcon={<UserRound size={14} />} onClick={() => setMode("human")} disabled={busy}>
+                      Join chat
+                    </Button>
+                  </>
+                )}
+                {active.mode === "human" && (
                   <>
                     <Badge tone="warning" dot>Human · AI paused</Badge>
                     <Button size="sm" leftIcon={<Bot size={14} />} onClick={() => setMode("ai")} disabled={busy}>
@@ -267,6 +278,11 @@ export function LiveChatPanel({ scope = "reseller" }: { scope?: "reseller" | "ad
             </header>
 
             <div className="flex-1 overflow-y-auto p-5 bg-slate-50/40 scrollbar-thin">
+              {active.mode === "pending_human" && (
+                <div className="mb-4 mx-auto max-w-md text-center bg-amber-50 border border-amber-300 text-amber-900 rounded-xl px-3 py-2 text-xs">
+                  <strong>Real-agent requested.</strong> AI has paused. Click "Join chat" to reply.
+                </div>
+              )}
               {active.mode === "human" && (
                 <div className="mb-4 mx-auto max-w-md text-center bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-3 py-2 text-xs">
                   AI paused — you are replying as a human.
@@ -298,11 +314,18 @@ export function LiveChatPanel({ scope = "reseller" }: { scope?: "reseller" | "ad
             </div>
 
             <footer className="p-3 border-t border-[var(--border)] bg-white">
-              {active.mode === "ai" ? (
+              {active.mode === "ai" && (
                 <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] bg-slate-100 rounded-lg px-3 py-2.5">
-                  <Lock size={14} /> AI is handling — take over to reply.
+                  <Lock size={14} /> AI is handling — you can take over if you need to.
                 </div>
-              ) : (
+              )}
+              {active.mode === "pending_human" && (
+                <div className="flex items-center gap-2 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+                  <Lock size={14} /> Customer asked for a real agent.
+                  Click <strong className="mx-1">Join chat</strong> above to start replying.
+                </div>
+              )}
+              {active.mode === "human" && (
                 <div className="flex items-center gap-2">
                   <input
                     value={draft}

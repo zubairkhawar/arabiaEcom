@@ -45,6 +45,7 @@ export default function ProductsPage() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [source, setSource] = useState<string>("all");
 
   const load = async () => {
     setLoading(true);
@@ -62,9 +63,17 @@ export default function ProductsPage() {
     load();
   }, []);
 
-  const filtered = items.filter((p) =>
-    p.name.toLowerCase().includes(q.toLowerCase())
-  );
+  // Build the source filter list dynamically from what's been synced
+  // — "all" + "manual" + one chip per connected Shopify store name.
+  const sources = ["all", "manual", ...Array.from(new Set(
+    items.filter((p) => p.source.startsWith("shopify:")).map((p) => p.source)
+  )).sort()];
+
+  const filtered = items.filter((p) => {
+    if (source !== "all" && p.source !== source) return false;
+    if (q && !p.name.toLowerCase().includes(q.toLowerCase())) return false;
+    return true;
+  });
 
   const onDelete = async (id: string) => {
     if (!confirm("Delete this product?")) return;
@@ -78,7 +87,7 @@ export default function ProductsPage() {
       title="Products"
       subtitle="Each product gets a unique WhatsApp tracking link for ads."
     >
-      <div className="flex flex-col md:flex-row gap-3 md:items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row gap-3 md:items-center justify-between mb-4">
         <div className="w-full md:w-80">
           <Input
             placeholder="Search products"
@@ -91,6 +100,39 @@ export default function ProductsPage() {
           Add Product
         </Button>
       </div>
+
+      {/* Source filter chips: "all", "manual", + one chip per connected
+          Shopify store. Each store's products stay distinct (not merged). */}
+      {sources.length > 2 && (
+        <div className="flex flex-wrap items-center gap-2 mb-5">
+          <span className="text-xs text-[var(--text-secondary)] mr-1">Source:</span>
+          {sources.map((s) => {
+            const label = s === "all" ? "All"
+              : s === "manual" ? "Manual"
+              : s.replace("shopify:", "Shopify · ");
+            const count = s === "all"
+              ? items.length
+              : items.filter((p) => p.source === s).length;
+            const active = s === source;
+            return (
+              <button
+                key={s}
+                onClick={() => setSource(s)}
+                className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-full border text-xs font-medium ${
+                  active
+                    ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                    : "border-[var(--border)] bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {label}
+                <span className={`text-[10px] ${active ? "opacity-80" : "text-[var(--text-muted)]"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {err && (
         <div className="mb-5 text-sm text-[var(--danger)] bg-[var(--danger-soft)] border border-red-200 rounded-lg px-3 py-2">
