@@ -24,7 +24,7 @@ const resellerNav = [
   { href: "/reseller/orders", label: "Orders", icon: ShoppingCart },
   { href: "/reseller/chats", label: "Live Chats", icon: MessageSquare },
   { href: "/reseller/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/reseller/settings", label: "AI Settings", icon: Settings },
+  { href: "/reseller/settings", label: "Settings", icon: Settings },
 ];
 
 const adminNav = [

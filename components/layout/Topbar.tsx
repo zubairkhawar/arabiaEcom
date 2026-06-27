@@ -1,14 +1,16 @@
 "use client";
 
-import { Bell, Calendar, Globe, ChevronDown, LogOut, ShieldCheck } from "lucide-react";
+import { Bell, Calendar, Globe, ChevronDown, LogOut, ShieldCheck, KeyRound } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { useRole } from "@/lib/role";
+import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 
 export function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
   const { role, userName, userEmail, signOut } = useRole();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
   const router = useRouter();
 
   return (
@@ -67,6 +69,15 @@ export function Topbar({ title, subtitle }: { title: string; subtitle?: string }
                     </div>
                   )}
                 </div>
+                <button
+                  onClick={() => {
+                    setPwOpen(true);
+                    setMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <KeyRound size={15} /> Change password
+                </button>
                 <div className="border-t border-[var(--border)]">
                   <button
                     onClick={() => {
@@ -84,6 +95,8 @@ export function Topbar({ title, subtitle }: { title: string; subtitle?: string }
           </div>
         </div>
       </div>
+
+      <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
     </header>
   );
 }
