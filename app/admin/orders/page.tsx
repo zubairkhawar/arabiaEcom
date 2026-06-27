@@ -9,6 +9,7 @@ import { Table, type Column } from "@/components/ui/Table";
 import { Input, Select } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
+import { useDateRange } from "@/lib/dateRange";
 import { money, shortDate } from "@/lib/format";
 import type { AdminOrderRow, ResellerSummary, OrderStatus } from "@/lib/types";
 
@@ -20,6 +21,7 @@ export default function AllOrdersPage() {
   const [status, setStatus] = useState<"all" | OrderStatus>("all");
   const [reseller, setReseller] = useState("all");
   const [q, setQ] = useState("");
+  const { range } = useDateRange();
 
   useEffect(() => {
     Promise.all([api<AdminOrderRow[]>("/admin/orders"), api<ResellerSummary[]>("/admin/resellers")])
@@ -28,8 +30,10 @@ export default function AllOrdersPage() {
   }, []);
 
   const rows = useMemo(
-    () =>
-      orders.filter((o) => {
+    () => {
+      const cutoff = Date.now() - range * 24 * 3600 * 1000;
+      return orders.filter((o) => {
+        if (new Date(o.created_at).getTime() < cutoff) return false;
         if (channel !== "all" && o.channel !== channel) return false;
         if (status !== "all" && o.status !== status) return false;
         if (reseller !== "all" && o.reseller_id !== reseller) return false;
@@ -38,8 +42,9 @@ export default function AllOrdersPage() {
           if (!hay.includes(q.toLowerCase())) return false;
         }
         return true;
-      }),
-    [orders, channel, status, reseller, q]
+      });
+    },
+    [orders, range, channel, status, reseller, q]
   );
 
   const columns: Column<AdminOrderRow>[] = [

@@ -40,6 +40,7 @@ import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
+import { useDateRange } from "@/lib/dateRange";
 import { money, num, pct, relTime } from "@/lib/format";
 import type { DashboardOut } from "@/lib/types";
 
@@ -56,20 +57,23 @@ export default function ResellerDashboard() {
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { range, label } = useDateRange();
 
   useEffect(() => {
+    setLoading(true);
     Promise.all([
-      api<DashboardOut>("/me/dashboard"),
+      api<DashboardOut>(`/me/dashboard?days=${range}`),
       api<ProductLite[]>("/products"),
     ])
       .then(([d, p]) => {
         setData(d);
         setProducts(p);
-        if (p.length > 0) setSelectedProduct(p[0].id);
+        if (p.length > 0 && !selectedProduct) setSelectedProduct(p[0].id);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => setLoading(false));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range]);
 
   if (loading) {
     return (
@@ -129,15 +133,7 @@ export default function ResellerDashboard() {
         <div className="xl:col-span-2 space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="lg:col-span-2">
-              <CardHeader
-                title="Conversations & Orders"
-                subtitle="Last 7 days"
-                action={
-                  <button className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-[var(--border)] text-xs text-slate-700 hover:bg-slate-50">
-                    Last 7 Days <ChevronDown size={12} />
-                  </button>
-                }
-              />
+              <CardHeader title="Conversations & Orders" subtitle={label} />
               {series.every((s) => s.conversations === 0 && s.orders === 0) ? (
                 <EmptyState
                   icon={<TrendingUp />}
@@ -165,7 +161,7 @@ export default function ResellerDashboard() {
             </Card>
 
             <Card>
-              <CardHeader title="Order Status" subtitle="Last 7 days" />
+              <CardHeader title="Order Status" subtitle={label} />
               {totalStatusOrders === 0 ? (
                 <EmptyState icon={<ShoppingCart />} title="No orders yet" />
               ) : (
@@ -268,7 +264,7 @@ export default function ResellerDashboard() {
             </Card>
 
             <Card>
-              <CardHeader title="AI Performance" subtitle="Last 7 days" />
+              <CardHeader title="AI Performance" subtitle={label} />
               <div className="flex justify-center mb-4">
                 <ProgressRing value={ai_performance.success_rate} size={130} thickness={10} sublabel="AI Success" />
               </div>

@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
+import { useDateRange } from "@/lib/dateRange";
 import { cn } from "@/lib/cn";
 import { relTime, money } from "@/lib/format";
 
@@ -91,8 +92,11 @@ export function LiveChatPanel({ scope = "reseller" }: { scope?: "reseller" | "ad
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [active]);
 
+  const { range } = useDateRange();
   const filtered = useMemo(() => {
+    const cutoff = Date.now() - range * 24 * 3600 * 1000;
     return chats.filter((c) => {
+      if (c.last_message_at && new Date(c.last_message_at).getTime() < cutoff) return false;
       if (filter === "ai" && c.mode !== "ai") return false;
       if (filter === "human" && c.mode !== "human") return false;
       if (filter === "unread" && c.unread === 0) return false;
@@ -101,7 +105,7 @@ export function LiveChatPanel({ scope = "reseller" }: { scope?: "reseller" | "ad
         return false;
       return true;
     });
-  }, [chats, filter, q]);
+  }, [chats, range, filter, q]);
 
   const setMode = async (mode: "ai" | "human") => {
     if (!active) return;

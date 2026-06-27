@@ -1,10 +1,11 @@
 "use client";
 
-import { Bell, Calendar, Globe, ChevronDown, LogOut, ShieldCheck, KeyRound } from "lucide-react";
-import { useState } from "react";
+import { Bell, Calendar, ChevronDown, LogOut, ShieldCheck, KeyRound } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { useRole } from "@/lib/role";
+import { useDateRange, RANGE_OPTIONS, type RangeValue } from "@/lib/dateRange";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 
 export function Topbar({
@@ -17,9 +18,23 @@ export function Topbar({
   showFilters?: boolean;
 }) {
   const { role, userName, userEmail, signOut } = useRole();
+  const { range, setRange, label } = useDateRange();
   const [menuOpen, setMenuOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const rangeRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // Close range dropdown on outside click
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (rangeRef.current && !rangeRef.current.contains(e.target as Node)) {
+        setRangeOpen(false);
+      }
+    };
+    if (rangeOpen) document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [rangeOpen]);
 
   return (
     <header className="sticky top-0 z-30 bg-[var(--bg-app)]/80 backdrop-blur border-b border-[var(--border)] px-6 lg:px-8 py-4">
@@ -34,17 +49,34 @@ export function Topbar({
         </div>
         <div className="flex items-center gap-2 md:gap-3">
           {showFilters && (
-            <>
-              <button className="hidden md:inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-[var(--border)] bg-white text-sm text-slate-700 hover:bg-slate-50">
+            <div className="relative" ref={rangeRef}>
+              <button
+                onClick={() => setRangeOpen((o) => !o)}
+                className="hidden md:inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-[var(--border)] bg-white text-sm text-slate-700 hover:bg-slate-50"
+              >
                 <Calendar size={15} />
-                <span>Last 7 days</span>
+                <span>{label}</span>
                 <ChevronDown size={14} className="text-slate-400" />
               </button>
-              <button className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[var(--border)] bg-white text-sm text-slate-700 hover:bg-slate-50">
-                <Globe size={15} />
-                <span>EN</span>
-              </button>
-            </>
+              {rangeOpen && (
+                <div className="absolute right-0 top-full mt-2 w-44 bg-white rounded-xl shadow-xl border border-[var(--border)] overflow-hidden z-40">
+                  {RANGE_OPTIONS.map((o) => (
+                    <button
+                      key={o.value}
+                      onClick={() => {
+                        setRange(o.value as RangeValue);
+                        setRangeOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 ${
+                        range === o.value ? "bg-emerald-50 text-emerald-700 font-medium" : "text-slate-700"
+                      }`}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           <button className="relative h-9 w-9 rounded-lg border border-[var(--border)] bg-white flex items-center justify-center hover:bg-slate-50">
             <Bell size={16} className="text-slate-600" />

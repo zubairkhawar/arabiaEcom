@@ -19,6 +19,7 @@ import { Shell } from "@/components/layout/Shell";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
+import { useDateRange } from "@/lib/dateRange";
 import type { DashboardOut, TrackingOverview } from "@/lib/types";
 
 const COUNTRY_COLORS = ["var(--accent)", "var(--accent-violet)", "var(--info)", "var(--warning)", "var(--danger)"];
@@ -28,16 +29,18 @@ export default function AnalyticsPage() {
   const [tracking, setTracking] = useState<TrackingOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const { range } = useDateRange();
 
   useEffect(() => {
+    setLoading(true);
     Promise.all([
-      api<DashboardOut>("/me/dashboard"),
-      api<TrackingOverview>("/tracking/overview"),
+      api<DashboardOut>(`/me/dashboard?days=${range}`),
+      api<TrackingOverview>(`/tracking/overview?days=${range}`),
     ])
       .then(([d, t]) => { setDash(d); setTracking(t); })
       .catch((e) => setErr(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [range]);
 
   if (loading) {
     return <Shell portal="reseller" title="Analytics"><div className="text-sm">Loading…</div></Shell>;

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Inter } from "next/font/google";
 import "./globals.css";
 import { RoleProvider } from "@/lib/role";
+import { DateRangeProvider } from "@/lib/dateRange";
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -26,7 +27,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${jakarta.variable} ${inter.variable} h-full antialiased`}>
       <body className="min-h-full">
-        <RoleProvider>{children}</RoleProvider>
+        <RoleProvider>
+          <DateRangeProvider>{children}</DateRangeProvider>
+        </RoleProvider>
       </body>
     </html>
   );
