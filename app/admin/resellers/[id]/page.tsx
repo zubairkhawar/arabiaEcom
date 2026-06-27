@@ -85,9 +85,9 @@ export default function ResellerDetailPage({ params }: { params: Promise<{ id: s
       </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <StatCard label="Revenue (confirmed)" value={money(data.revenue, r.currency)} delta={0} caption="" />
-        <StatCard label="Orders" value={num(data.orders_count)} delta={0} caption="" />
-        <StatCard label="Ad clicks" value={num(data.clicks)} delta={0} caption="" />
+        <StatCard label="Revenue (confirmed)" value={money(data.revenue, r.currency)} caption="lifetime" />
+        <StatCard label="Orders" value={num(data.orders_count)} caption="lifetime" />
+        <StatCard label="Ad clicks" value={num(data.clicks)} caption="lifetime" />
       </div>
 
       <Card>
