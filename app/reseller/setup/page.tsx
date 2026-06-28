@@ -48,6 +48,8 @@ interface WhatsAppConfigOut {
   display_phone_number: string | null;
   has_token: boolean;
   verified: boolean;
+  assigned_pool_number: string | null;
+  assigned_pool_country: string | null;
 }
 
 export default function SetupPage() {
@@ -140,17 +142,25 @@ function WhatsAppWizard() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    try {
+      const c = await api<WhatsAppConfigOut>("/me/wa-config");
+      setCfg(c);
+      setType(c.number_type);
+      setWaba(c.waba_id ?? "");
+      setPn(c.phone_number_id ?? "");
+      setDisplay(c.display_phone_number ?? "");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    api<WhatsAppConfigOut>("/me/wa-config")
-      .then((c) => {
-        setCfg(c);
-        setType(c.number_type);
-        setWaba(c.waba_id ?? "");
-        setPn(c.phone_number_id ?? "");
-        setDisplay(c.display_phone_number ?? "");
-      })
-      .catch((e) => setErr(e instanceof Error ? e.message : "Failed to load"));
+    load();
   }, []);
 
   const save = async () => {
@@ -173,7 +183,7 @@ function WhatsAppWizard() {
       setOk(
         type === "universal"
           ? "Universal pool active — you'll be auto-assigned on first link click."
-          : "WhatsApp configuration saved."
+          : "WhatsApp configuration saved and verified with Meta."
       );
       setToken("");
       setVerifyTok("");
@@ -184,10 +194,121 @@ function WhatsAppWizard() {
     }
   };
 
+  const disconnect = async () => {
+    if (!confirm(
+      cfg?.number_type === "universal"
+        ? "Disconnect from the universal pool? Your pool slot will be released."
+        : "Disconnect WhatsApp? Customers won't be able to message you until you reconnect."
+    )) return;
+    setBusy(true);
+    setErr(null);
+    setOk(null);
+    try {
+      await api("/me/wa-config", { method: "DELETE" });
+      setCfg(null);
+      setType("own");
+      setWaba(""); setPn(""); setDisplay(""); setToken(""); setVerifyTok("");
+      setOk("Disconnected. Choose a number type to reconnect.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Disconnect failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const webhookUrl = profile
     ? `${API_BASE}/webhooks/wa/${profile.id}`
     : `${API_BASE}/webhooks/wa/{your_reseller_id}`;
 
+  // ---- CONNECTED STATE ----
+  // If reseller already has a WA config, show a summary card with disconnect.
+  if (!loading && cfg?.verified) {
+    const isUniversal = cfg.number_type === "universal";
+    return (
+      <div className="space-y-7">
+        <header className="flex items-center gap-3">
+          <WhatsAppLogo size={40} />
+          <div>
+            <h2 className="font-display font-semibold text-lg text-[var(--text-primary)]">
+              WhatsApp Connected
+            </h2>
+            <p className="text-sm text-[var(--text-secondary)]">
+              {isUniversal
+                ? "You're on the universal pool. To switch to your own number, disconnect first."
+                : "Your own Meta WhatsApp number is connected. To switch to the universal pool, disconnect first."}
+            </p>
+          </div>
+        </header>
+
+        <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/30 p-5">
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                isUniversal ? "bg-violet-100 text-violet-700" : "bg-emerald-100 text-emerald-700"
+              }`}>
+                {isUniversal ? <Globe size={18} /> : <Phone size={18} />}
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-[var(--text-primary)]">
+                  {isUniversal ? "Universal pool number" : "Your own WhatsApp number"}
+                </div>
+                <div className="text-xs text-[var(--text-secondary)] mt-0.5">
+                  Active · receiving customer messages
+                </div>
+              </div>
+            </div>
+            <Badge tone="success" dot>Verified</Badge>
+          </div>
+
+          <div className="space-y-3 pt-3 border-t border-emerald-200">
+            {isUniversal ? (
+              <>
+                <Row label="Assigned number">
+                  {cfg.assigned_pool_number
+                    ? <span className="font-mono">{cfg.assigned_pool_number}</span>
+                    : <span className="text-[var(--text-secondary)] text-xs italic">Not assigned yet — you'll be auto-assigned on first link click.</span>}
+                </Row>
+                {cfg.assigned_pool_country && (
+                  <Row label="Country">{cfg.assigned_pool_country}</Row>
+                )}
+                <Row label="Pool capacity">50 resellers per number · auto-spillover</Row>
+              </>
+            ) : (
+              <>
+                <Row label="Display number">
+                  <span className="font-mono">{cfg.display_phone_number ?? "—"}</span>
+                </Row>
+                <Row label="WABA ID">
+                  <span className="font-mono text-xs">{cfg.waba_id ?? "—"}</span>
+                </Row>
+                <Row label="Phone Number ID">
+                  <span className="font-mono text-xs">{cfg.phone_number_id ?? "—"}</span>
+                </Row>
+                <Row label="Access token">
+                  {cfg.has_token ? <Badge tone="success">Stored (encrypted)</Badge> : "—"}
+                </Row>
+                <div>
+                  <span className="block mb-1.5 text-xs font-medium text-[var(--text-secondary)]">Meta webhook URL</span>
+                  <CopyField value={webhookUrl} />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {err && <div className="text-sm text-[var(--danger)] bg-[var(--danger-soft)] border border-red-200 rounded-lg px-3 py-2">{err}</div>}
+        {ok && <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">{ok}</div>}
+
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={disconnect} disabled={busy}>
+            {busy ? "Disconnecting…" : "Disconnect"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- DISCONNECTED STATE — choose-type wizard ----
   return (
     <div className="space-y-7">
       <header className="flex items-center gap-3">
@@ -197,39 +318,27 @@ function WhatsAppWizard() {
             Connect WhatsApp
           </h2>
           <p className="text-sm text-[var(--text-secondary)]">
-            Step 1 — choose your number type, then we'll guide you through the rest.
+            Step 1 — pick your number type. Only one (own or universal) can be active at a time.
           </p>
         </div>
       </header>
 
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold">Step 1 · Choose number type</h3>
-          {cfg?.verified && (
-            <Badge tone="success" dot>
-              {cfg.number_type === "own" ? "Own number connected" : "Universal pool active"}
-            </Badge>
-          )}
-        </div>
+        <h3 className="text-sm font-semibold mb-3">Step 1 · Choose number type</h3>
         <NumberTypeChoice value={type} onChange={setType} />
       </div>
 
       {type === "own" ? (
         <div className="space-y-5">
           <WhatsAppTutorial />
-
           <div className="grid md:grid-cols-2 gap-4">
             <Input label="WhatsApp Business Account ID" value={waba} onChange={(e) => setWaba(e.target.value)} placeholder="1234567890123456" />
             <Input label="Phone Number ID" value={pn} onChange={(e) => setPn(e.target.value)} placeholder="9876543210123456" />
             <Input label="Display phone (E.164)" value={display} onChange={(e) => setDisplay(e.target.value)} placeholder="+971 50 123 0001" />
-            <Input
-              label={cfg?.has_token ? "Permanent Access Token (leave blank to keep existing)" : "Permanent Access Token"}
-              type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="EAAQ…"
-            />
+            <Input label="Permanent Access Token" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="EAAQ…" />
             <Input label="Webhook Verify Token (any secret string)" value={verifyTok} onChange={(e) => setVerifyTok(e.target.value)} placeholder="my-secret-token" />
           </div>
-
-          <CopyField label="Set this as your Meta webhook URL" value={webhookUrl} />
+          <CopyField label="Set this as your Meta webhook URL (after Save)" value={webhookUrl} />
         </div>
       ) : (
         <div className="rounded-xl bg-[var(--accent-soft)] border border-emerald-200 p-5 flex gap-3">
@@ -250,6 +359,15 @@ function WhatsAppWizard() {
       <div className="flex justify-end">
         <Button onClick={save} disabled={busy}>{busy ? "Saving…" : "Save WhatsApp config"}</Button>
       </div>
+    </div>
+  );
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <span className="text-xs text-[var(--text-secondary)] uppercase tracking-wide pt-0.5">{label}</span>
+      <span className="text-sm text-[var(--text-primary)] text-right">{children}</span>
     </div>
   );
 }
