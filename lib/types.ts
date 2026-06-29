@@ -134,16 +134,8 @@ export interface OrderOut {
 
 export interface AISettingsOut {
   ai_name: string;
-  role: string;
-  tone: "Friendly" | "Professional" | "Playful" | "Direct";
-  creativity: number;
+  opening_message: string | null;
   response_length: "Short" | "Medium" | "Long";
-  primary_language: string;
-  supported_languages: string[];
-  always_sound_human: boolean;
-  upsell_aggressiveness: number;
-  convince_hesitant: boolean;
-  fallback_to_human: boolean;
   business_hours?: Array<{
     day: string;
     open: string;

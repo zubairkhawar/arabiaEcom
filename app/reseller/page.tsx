@@ -10,6 +10,7 @@ import {
   ChevronDown,
   CheckCircle,
   Circle,
+  ChevronRight,
   Share2,
   QrCode,
   ExternalLink,
@@ -50,6 +51,16 @@ interface ProductLite {
   slug: string;
   generated_url: string;
 }
+
+const ONBOARDING_HREFS: Record<string, string> = {
+  "Account Created": "/reseller/settings?tab=profile",
+  "Business Information": "/reseller/settings?tab=profile",
+  "WhatsApp Number Connected": "/reseller/setup",
+  "Meta Pixel Connected": "/reseller/setup",
+  "Product Added": "/reseller/products",
+  "AI Training": "/reseller/settings",
+  "First Customer Chat": "/reseller/chats",
+};
 
 export default function ResellerDashboard() {
   const [data, setData] = useState<DashboardOut | null>(null);
@@ -342,15 +353,24 @@ export default function ResellerDashboard() {
                 <div className="h-full bg-[var(--accent)] rounded-full transition-all" style={{ width: `${(completed / onboarding.length) * 100}%` }} />
               </div>
             </div>
-            <ul className="space-y-2.5">
-              {onboarding.map((s) => (
-                <li key={s.label} className="flex items-center gap-2.5 text-sm">
-                  {s.done
-                    ? <CheckCircle size={16} className="text-[var(--accent)] shrink-0" />
-                    : <Circle size={16} className="text-slate-300 shrink-0" />}
-                  <span className={s.done ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}>{s.label}</span>
-                </li>
-              ))}
+            <ul className="space-y-1">
+              {onboarding.map((s) => {
+                const href = ONBOARDING_HREFS[s.label] ?? "/reseller/setup";
+                return (
+                  <li key={s.label}>
+                    <Link
+                      href={href}
+                      className="group flex items-center gap-2.5 text-sm py-1.5 px-2 -mx-2 rounded-lg hover:bg-slate-50 transition-colors"
+                    >
+                      {s.done
+                        ? <CheckCircle size={16} className="text-[var(--accent)] shrink-0" />
+                        : <Circle size={16} className="text-slate-300 shrink-0" />}
+                      <span className={`flex-1 ${s.done ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}`}>{s.label}</span>
+                      <ChevronRight size={14} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </Card>
         </div>

@@ -182,7 +182,7 @@ function WhatsAppWizard() {
       setCfg(next);
       setOk(
         type === "universal"
-          ? "Universal pool active — you'll be auto-assigned on first link click."
+          ? "Connected to the universal pool — your number is shown above."
           : "WhatsApp configuration saved and verified with Meta."
       );
       setToken("");
@@ -263,15 +263,19 @@ function WhatsAppWizard() {
           <div className="space-y-3 pt-3 border-t border-emerald-200">
             {isUniversal ? (
               <>
-                <Row label="Assigned number">
+                <Row label="Your WhatsApp number">
                   {cfg.assigned_pool_number
-                    ? <span className="font-mono">{cfg.assigned_pool_number}</span>
-                    : <span className="text-[var(--text-secondary)] text-xs italic">Not assigned yet — you'll be auto-assigned on first link click.</span>}
+                    ? <span className="font-mono text-base">{cfg.assigned_pool_number}</span>
+                    : <span className="text-[var(--text-secondary)] text-xs italic">Assigning…</span>}
                 </Row>
                 {cfg.assigned_pool_country && (
                   <Row label="Country">{cfg.assigned_pool_country}</Row>
                 )}
-                <Row label="Pool capacity">50 resellers per number · auto-spillover</Row>
+                {cfg.assigned_pool_number && (
+                  <div className="pt-2 mt-2 border-t border-emerald-200 text-xs text-[var(--text-secondary)]">
+                    Test it: message <span className="font-mono text-[var(--text-primary)]">{cfg.assigned_pool_number}</span> from your phone — your AI should reply within a few seconds.
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -346,8 +350,8 @@ function WhatsAppWizard() {
           <div>
             <div className="font-semibold text-[var(--text-primary)]">No setup required</div>
             <p className="text-sm text-slate-700 mt-1">
-              Customers will message a country-specific number from our pool. You'll be
-              auto-assigned a slot the first time a product link is clicked.
+              We'll assign you a country-specific WhatsApp number from our pool. Click
+              <strong> Save</strong> and your number appears here right away.
             </p>
           </div>
         </div>
