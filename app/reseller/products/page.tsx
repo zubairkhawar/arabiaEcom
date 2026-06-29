@@ -2,48 +2,27 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Plus, ExternalLink, Search, ImageIcon, Trash2 } from "lucide-react";
+import { Plus, ExternalLink, Search, ImageIcon, Trash2, Pencil } from "lucide-react";
 import { Shell } from "@/components/layout/Shell";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input, Select, Textarea } from "@/components/ui/Input";
+import { Input } from "@/components/ui/Input";
 import { CopyField } from "@/components/ui/CopyField";
 import { Badge } from "@/components/ui/Badge";
-import { Modal } from "@/components/ui/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
 import { money } from "@/lib/format";
+import type { ProductOut } from "@/lib/types";
+import { ProductEditor } from "./ProductEditor";
 
 const countryFlag: Record<string, string> = { UAE: "🇦🇪", PAK: "🇵🇰", KSA: "🇸🇦" };
-
-interface ProductOut {
-  id: string;
-  name: string;
-  slug: string;
-  image_url: string | null;
-  description: string | null;
-  main_description: string | null;
-  key_points: string[];
-  price: number;
-  currency: string;
-  country: string;
-  channels: string[];
-  discount_type: string | null;
-  discount_value: number | null;
-  active: boolean;
-  source: string;
-  options: { name: string; values: string[]; position: number }[];
-  variants: { id: string; label: string; combo: Record<string, string>; price: number | null; stock: number | null; sku: string | null }[];
-  bundles: { qty: number; price: number }[];
-  generated_url: string;
-  created_at: string;
-}
 
 export default function ProductsPage() {
   const [items, setItems] = useState<ProductOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<ProductOut | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [source, setSource] = useState<string>("all");
 
@@ -96,7 +75,7 @@ export default function ProductsPage() {
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
-        <Button leftIcon={<Plus size={16} />} onClick={() => setOpen(true)}>
+        <Button leftIcon={<Plus size={16} />} onClick={() => setAddOpen(true)}>
           Add Product
         </Button>
       </div>
@@ -148,7 +127,7 @@ export default function ProductsPage() {
             icon={<Plus />}
             title={q ? "No products match your search" : "No products yet"}
             description={q ? "Try a different name." : "Add your first product to generate a tracking link."}
-            action={!q && <Button onClick={() => setOpen(true)}>Add Product</Button>}
+            action={!q && <Button onClick={() => setAddOpen(true)}>Add Product</Button>}
           />
         </Card>
       ) : (
@@ -206,8 +185,16 @@ export default function ProductsPage() {
                     <ExternalLink size={13} /> Open
                   </a>
                   <button
+                    onClick={() => setEditing(p)}
+                    className="ml-auto text-slate-400 hover:text-[var(--accent)] p-1.5 hover:bg-emerald-50 rounded"
+                    aria-label="Edit product"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
                     onClick={() => onDelete(p.id)}
-                    className="ml-auto text-slate-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded"
+                    className="text-slate-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded"
+                    aria-label="Delete product"
                   >
                     <Trash2 size={15} />
                   </button>
@@ -218,102 +205,22 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {open && <AddProductModal onClose={() => setOpen(false)} onCreated={load} />}
-    </Shell>
-  );
-}
-
-function AddProductModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [name, setName] = useState("");
-  const [imgUrl, setImgUrl] = useState("");
-  const [description, setDescription] = useState("");
-  const [mainDescription, setMainDescription] = useState("");
-  const [price, setPrice] = useState("199");
-  const [currency, setCurrency] = useState("AED");
-  const [country, setCountry] = useState("UAE");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const submit = async () => {
-    setBusy(true);
-    setErr(null);
-    try {
-      await api("/products", {
-        method: "POST",
-        body: {
-          name, image_url: imgUrl || null,
-          description: description || null,
-          main_description: mainDescription || null,
-          key_points: [],
-          price: Number(price) || 0,
-          currency,
-          country,
-          channels: ["whatsapp"],
-        },
-      });
-      onCreated();
-      onClose();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Save failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal
-      open={true}
-      onClose={onClose}
-      title="Add product"
-      size="lg"
-      footer={
-        <>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={busy || !name || !price}>
-            {busy ? "Saving…" : "Save & generate link"}
-          </Button>
-        </>
-      }
-    >
-      <div className="grid md:grid-cols-2 gap-5">
-        <div className="space-y-4">
-          <Input label="Product name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Wireless Earbuds Pro" />
-          <Input label="Image URL (optional)" value={imgUrl} onChange={(e) => setImgUrl(e.target.value)} placeholder="https://…/photo.jpg" />
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Price" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="199" />
-            <Select label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value)}
-              options={[
-                { value: "AED", label: "AED" },
-                { value: "SAR", label: "SAR" },
-                { value: "PKR", label: "PKR" },
-                { value: "USD", label: "USD" },
-              ]}
-            />
-          </div>
-          <Select
-            label="Target country"
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            options={[
-              { value: "UAE", label: "🇦🇪 UAE" },
-              { value: "PAK", label: "🇵🇰 Pakistan" },
-              { value: "KSA", label: "🇸🇦 Saudi Arabia" },
-            ]}
-          />
-        </div>
-        <div className="space-y-4">
-          <Input label="Short tagline" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="ANC + 24h battery" />
-          <Textarea label="Full description" value={mainDescription} onChange={(e) => setMainDescription(e.target.value)} placeholder="What makes this product special?" />
-          <div className="text-xs text-[var(--text-muted)] bg-slate-50 border border-[var(--border)] rounded-lg p-3">
-            Variants, bundles and discounts can be added next via API (full editor coming).
-          </div>
-        </div>
-      </div>
-      {err && (
-        <div className="mt-4 text-sm text-[var(--danger)] bg-[var(--danger-soft)] border border-red-200 rounded-lg px-3 py-2">
-          {err}
-        </div>
+      {addOpen && (
+        <ProductEditor
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          onSaved={load}
+        />
       )}
-    </Modal>
+
+      {editing && (
+        <ProductEditor
+          open={!!editing}
+          onClose={() => setEditing(null)}
+          onSaved={load}
+          product={editing}
+        />
+      )}
+    </Shell>
   );
 }

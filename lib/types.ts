@@ -217,6 +217,90 @@ export interface AdminChatRow {
   last_message_at: string | null;
 }
 
+export interface OptionIn {
+  name: string;
+  values: string[];
+}
+
+export interface VariantIn {
+  label: string;
+  combo: Record<string, string>;
+  price: number | null;
+  stock: number | null;
+  sku: string | null;
+}
+
+export interface BundleIn {
+  qty: number;
+  price: number;
+}
+
+export interface DiscountIn {
+  type: "percent" | "flat";
+  value: number;
+}
+
+export interface OptionOut {
+  name: string;
+  values: string[];
+  position: number;
+}
+
+export interface VariantOut {
+  id: string;
+  label: string;
+  combo: Record<string, string>;
+  price: number | null;
+  stock: number | null;
+  sku: string | null;
+}
+
+export interface BundleOut {
+  qty: number;
+  price: number;
+}
+
+export interface ProductOut {
+  id: string;
+  name: string;
+  slug: string;
+  image_url: string | null;
+  description: string | null;
+  main_description: string | null;
+  key_points: string[];
+  price: number;
+  currency: string;
+  country: string;
+  channels: string[];
+  discount_type: "percent" | "flat" | null;
+  discount_value: number | null;
+  active: boolean;
+  source: string;
+  options: OptionOut[];
+  variants: VariantOut[];
+  bundles: BundleOut[];
+  generated_url: string;
+  created_at: string;
+}
+
+export interface ProductIn {
+  name: string;
+  image_url: string | null;
+  description: string | null;
+  main_description: string | null;
+  key_points?: string[];
+  price: number;
+  currency: string;
+  country: string;
+  channels: string[];
+  discount: DiscountIn | null;
+  bundles: BundleIn[];
+  options: OptionIn[];
+  variants: VariantIn[];
+}
+
+export type ProductUpdate = Partial<ProductIn> & { active?: boolean };
+
 export interface TrackingOverview {
   total_clicks: number;
   total_orders: number;
