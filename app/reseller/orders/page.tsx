@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Search, X, MessageSquare, Download, Upload, Send } from "lucide-react";
+import { Search, X, MessageSquare, Download, Upload, Send, RefreshCw } from "lucide-react";
 import { Shell } from "@/components/layout/Shell";
 import { Card } from "@/components/ui/Card";
 import { Badge, statusTone } from "@/components/ui/Badge";
@@ -30,6 +30,22 @@ interface TemplateOut {
   status: string;
 }
 
+interface ShopifyStoreLite {
+  id: string;
+  name: string;
+}
+
+interface SyncOrdersResult {
+  ok: boolean;
+  fetched: number;
+  created: number;
+  updated: number;
+  skipped_no_phone: number;
+  skipped_no_items: number;
+  autocreated_products: number;
+  last_orders_sync_at: string | null;
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<OrderOut[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +55,10 @@ export default function OrdersPage() {
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<OrderOut | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [shopifyStores, setShopifyStores] = useState<ShopifyStoreLite[]>([]);
+  const [syncingShopify, setSyncingShopify] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const { range } = useDateRange();
 
   const load = async () => {
@@ -52,7 +72,46 @@ export default function OrdersPage() {
   };
   useEffect(() => {
     load();
+    api<ShopifyStoreLite[]>("/me/shopify/stores")
+      .then((s) => setShopifyStores(s))
+      .catch(() => setShopifyStores([]));
   }, []);
+
+  const syncShopifyOrders = async () => {
+    if (shopifyStores.length === 0 || syncingShopify) return;
+    setSyncingShopify(true);
+    setSyncResult(null);
+    setSyncError(null);
+    const totals = {
+      fetched: 0, created: 0, updated: 0,
+      skipped_no_phone: 0, skipped_no_items: 0, autocreated_products: 0,
+    };
+    const failures: string[] = [];
+    for (const store of shopifyStores) {
+      try {
+        const r = await api<SyncOrdersResult>(
+          `/me/shopify/stores/${store.id}/sync-orders`, { method: "POST" }
+        );
+        totals.fetched += r.fetched;
+        totals.created += r.created;
+        totals.updated += r.updated;
+        totals.skipped_no_phone += r.skipped_no_phone;
+        totals.skipped_no_items += r.skipped_no_items;
+        totals.autocreated_products += r.autocreated_products;
+      } catch (e) {
+        failures.push(`${store.name}: ${e instanceof Error ? e.message : "failed"}`);
+      }
+    }
+    const extras: string[] = [];
+    if (totals.skipped_no_phone) extras.push(`${totals.skipped_no_phone} skipped (no phone)`);
+    if (totals.skipped_no_items) extras.push(`${totals.skipped_no_items} skipped (no items)`);
+    if (totals.autocreated_products) extras.push(`${totals.autocreated_products} product${totals.autocreated_products === 1 ? "" : "s"} auto-created — review in Products`);
+    const tail = extras.length ? ` · ${extras.join(" · ")}` : "";
+    setSyncResult(`Synced — fetched ${totals.fetched}, created ${totals.created}, updated ${totals.updated}${tail}.`);
+    if (failures.length) setSyncError(failures.join(" · "));
+    setSyncingShopify(false);
+    await load();
+  };
 
   const rows = useMemo(
     () => {
@@ -167,8 +226,51 @@ export default function OrdersPage() {
             { value: "failed", label: "Failed" },
           ]} /></div>
           <Button variant="outline" size="sm" leftIcon={<Upload size={14} />} onClick={() => setImportOpen(true)}>Import</Button>
+          {shopifyStores.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<RefreshCw size={14} className={syncingShopify ? "animate-spin" : ""} />}
+              onClick={syncShopifyOrders}
+              disabled={syncingShopify}
+              title={
+                syncingShopify
+                  ? "Sync in progress — first 90-day backfill can take a few minutes."
+                  : shopifyStores.length === 1
+                    ? `Pull orders from ${shopifyStores[0].name}. First sync covers 90 days; subsequent syncs are incremental.`
+                    : `Pull orders from all ${shopifyStores.length} connected stores sequentially.`
+              }
+            >
+              {syncingShopify
+                ? "Syncing…"
+                : shopifyStores.length === 1
+                  ? "Sync Shopify"
+                  : `Sync Shopify (${shopifyStores.length} stores)`}
+            </Button>
+          )}
           <Button variant="outline" size="sm" leftIcon={<Download size={14} />} onClick={exportCsv}>Export</Button>
         </div>
+
+        {(syncResult || syncError) && (
+          <div className="px-4 md:px-5 py-2.5 border-b border-[var(--border)] space-y-1">
+            {syncResult && (
+              <div className="flex items-start gap-2 text-sm text-[var(--text-primary)] bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                <span className="flex-1">{syncResult}</span>
+                <button onClick={() => setSyncResult(null)} className="text-slate-400 hover:text-slate-700" aria-label="Dismiss">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+            {syncError && (
+              <div className="flex items-start gap-2 text-sm text-[var(--danger)] bg-[var(--danger-soft)] border border-red-200 rounded-lg px-3 py-2">
+                <span className="flex-1">{syncError}</span>
+                <button onClick={() => setSyncError(null)} className="text-slate-400 hover:text-slate-700" aria-label="Dismiss">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="p-2">
           {loading ? (
