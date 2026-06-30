@@ -301,6 +301,37 @@ export interface ProductIn {
 
 export type ProductUpdate = Partial<ProductIn> & { active?: boolean };
 
+export interface LinkSourceBreakdown {
+  platform: string;
+  clicks: number;
+  orders: number;
+}
+
+export interface LinkRow {
+  product_id: string;
+  product_name: string;
+  slug: string;
+  generated_url: string;
+  image_url: string | null;
+  clicks: number;
+  orders: number;
+  delivered: number;
+  returned: number;
+  conversion_rate: number;
+  delivery_rate: number;
+  by_source: LinkSourceBreakdown[];
+}
+
+export interface TrackingLinksOut {
+  rows: LinkRow[];
+  window_days: number;
+  total_clicks: number;
+  total_orders: number;
+  total_delivered: number;
+  total_returned: number;
+  total_orders_unattributed: number;
+}
+
 export interface TrackingOverview {
   total_clicks: number;
   total_orders: number;

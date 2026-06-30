@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { ChevronDown, ChevronRight, ExternalLink, ImageIcon } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -18,17 +20,22 @@ import {
 import { Shell } from "@/components/layout/Shell";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Tabs } from "@/components/ui/Tabs";
 import { api } from "@/lib/api";
 import { useDateRange } from "@/lib/dateRange";
-import type { DashboardOut, TrackingOverview } from "@/lib/types";
+import type { DashboardOut, TrackingOverview, TrackingLinksOut, LinkRow } from "@/lib/types";
 
 const COUNTRY_COLORS = ["var(--accent)", "var(--accent-violet)", "var(--info)", "var(--warning)", "var(--danger)"];
+
+type AnalyticsTab = "overview" | "links";
 
 export default function AnalyticsPage() {
   const [dash, setDash] = useState<DashboardOut | null>(null);
   const [tracking, setTracking] = useState<TrackingOverview | null>(null);
+  const [links, setLinks] = useState<TrackingLinksOut | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [tab, setTab] = useState<AnalyticsTab>("overview");
   const { range } = useDateRange();
 
   useEffect(() => {
@@ -36,8 +43,9 @@ export default function AnalyticsPage() {
     Promise.all([
       api<DashboardOut>(`/me/dashboard?days=${range}`),
       api<TrackingOverview>(`/tracking/overview?days=${range}`),
+      api<TrackingLinksOut>(`/tracking/links?days=${range}`),
     ])
-      .then(([d, t]) => { setDash(d); setTracking(t); })
+      .then(([d, t, l]) => { setDash(d); setTracking(t); setLinks(l); })
       .catch((e) => setErr(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => setLoading(false));
   }, [range]);
@@ -45,7 +53,7 @@ export default function AnalyticsPage() {
   if (loading) {
     return <Shell portal="reseller" title="Analytics"><div className="text-sm">Loading…</div></Shell>;
   }
-  if (err || !dash || !tracking) {
+  if (err || !dash || !tracking || !links) {
     return <Shell portal="reseller" title="Analytics"><div className="text-sm text-[var(--danger)]">{err || "no data"}</div></Shell>;
   }
 
@@ -59,6 +67,21 @@ export default function AnalyticsPage() {
 
   return (
     <Shell portal="reseller" title="Analytics" subtitle="Live data from your orders, chats, and ad clicks." showFilters>
+      <div className="mb-5">
+        <Tabs
+          variant="underline"
+          value={tab}
+          onChange={(id) => setTab(id as AnalyticsTab)}
+          tabs={[
+            { id: "overview", label: "Overview" },
+            { id: "links", label: "Link Tracking", badge: links.rows.length || undefined },
+          ]}
+        />
+      </div>
+
+      {tab === "links" && <LinkTrackingPanel data={links} />}
+
+      {tab === "overview" && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="lg:col-span-2">
           <CardHeader title="Conversations & Orders over time" subtitle="Last 7 days" />
@@ -213,6 +236,167 @@ export default function AnalyticsPage() {
           )}
         </Card>
       </div>
+      )}
     </Shell>
+  );
+}
+
+function LinkTrackingPanel({ data }: { data: TrackingLinksOut }) {
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const toggle = (id: string) => {
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  if (data.rows.length === 0) {
+    return (
+      <Card>
+        <EmptyState
+          icon={<></>}
+          title="No link activity in this window"
+          description="Once customers click a product link, that link will show up here with click-through and order numbers."
+        />
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <KPI label="Clicks" value={data.total_clicks} />
+        <KPI label="Orders (attributed)" value={data.total_orders} />
+        <KPI label="Delivered" value={data.total_delivered} />
+        <KPI label="Returned" value={data.total_returned} />
+        <KPI label="Unattributed orders" value={data.total_orders_unattributed} muted />
+      </div>
+
+      {data.total_orders_unattributed > 0 && (
+        <div className="text-xs text-[var(--text-secondary)] bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          {data.total_orders_unattributed} order{data.total_orders_unattributed === 1 ? "" : "s"} in
+          this window could not be attributed to a link (no click recorded — direct chats or
+          imported orders). These are excluded from the per-link rows below.
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {data.rows.map((row) => (
+          <LinkRowCard
+            key={row.product_id}
+            row={row}
+            open={openIds.has(row.product_id)}
+            onToggle={() => toggle(row.product_id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function KPI({ label, value, muted }: { label: string; value: number; muted?: boolean }) {
+  return (
+    <Card padded={false} className="p-4">
+      <div className={`text-2xl font-bold font-display ${muted ? "text-[var(--text-secondary)]" : ""}`}>
+        {value.toLocaleString()}
+      </div>
+      <div className="text-xs text-[var(--text-muted)] mt-0.5">{label}</div>
+    </Card>
+  );
+}
+
+function LinkRowCard({ row, open, onToggle }: { row: LinkRow; open: boolean; onToggle: () => void }) {
+  const activeSources = useMemo(
+    () => row.by_source.filter((s) => s.clicks > 0 || s.orders > 0),
+    [row.by_source]
+  );
+
+  return (
+    <Card padded={false} className="overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50"
+        aria-expanded={open}
+      >
+        <span className="text-slate-400">
+          {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </span>
+        <div className="relative w-10 h-10 rounded bg-slate-100 overflow-hidden shrink-0">
+          {row.image_url ? (
+            <Image src={row.image_url} alt="" fill sizes="40px" className="object-cover" />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-slate-300">
+              <ImageIcon size={16} />
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-[var(--text-primary)] truncate">{row.product_name}</div>
+          <div className="text-xs text-[var(--text-muted)] truncate">/r/{row.slug}</div>
+        </div>
+        <div className="hidden md:flex items-center gap-6 text-sm text-[var(--text-secondary)]">
+          <Stat label="Clicks" value={row.clicks} />
+          <Stat label="Orders" value={row.orders} sub={`${row.conversion_rate.toFixed(1)}%`} />
+          <Stat label="Delivered" value={row.delivered} sub={`${row.delivery_rate.toFixed(1)}%`} />
+          <Stat label="Returned" value={row.returned} />
+        </div>
+        <a
+          href={row.generated_url}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="text-slate-400 hover:text-[var(--accent)] p-1.5 hover:bg-emerald-50 rounded"
+          aria-label="Open link"
+        >
+          <ExternalLink size={15} />
+        </a>
+      </button>
+
+      <div className="md:hidden px-4 pb-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-[var(--text-secondary)]">
+        <span>Clicks <b className="text-[var(--text-primary)]">{row.clicks}</b></span>
+        <span>Orders <b className="text-[var(--text-primary)]">{row.orders}</b> ({row.conversion_rate.toFixed(1)}%)</span>
+        <span>Delivered <b className="text-[var(--text-primary)]">{row.delivered}</b> ({row.delivery_rate.toFixed(1)}%)</span>
+        <span>Returned <b className="text-[var(--text-primary)]">{row.returned}</b></span>
+      </div>
+
+      {open && (
+        <div className="border-t border-[var(--border)] bg-slate-50/50 px-4 py-3">
+          {activeSources.length === 0 ? (
+            <div className="text-xs text-[var(--text-muted)] py-2">No source activity in this window.</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wide text-[var(--text-secondary)]">
+                  <th className="px-2 py-1.5 font-medium">Source</th>
+                  <th className="px-2 py-1.5 font-medium text-right">Clicks</th>
+                  <th className="px-2 py-1.5 font-medium text-right">Orders</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeSources.map((s) => (
+                  <tr key={s.platform} className="border-t border-[var(--border)] first:border-0">
+                    <td className="px-2 py-1.5 capitalize">{s.platform}</td>
+                    <td className="px-2 py-1.5 text-right">{s.clicks}</td>
+                    <td className="px-2 py-1.5 text-right">{s.orders}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function Stat({ label, value, sub }: { label: string; value: number; sub?: string }) {
+  return (
+    <div className="text-right">
+      <div className="font-semibold text-[var(--text-primary)]">{value.toLocaleString()}</div>
+      <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide">
+        {label}{sub && <span className="text-[var(--text-secondary)] normal-case tracking-normal ml-1">· {sub}</span>}
+      </div>
+    </div>
   );
 }
