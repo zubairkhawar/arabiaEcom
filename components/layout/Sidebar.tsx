@@ -13,9 +13,14 @@ import {
   Users,
   Phone,
   Sparkles,
+  CreditCard,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useRole } from "@/lib/role";
 import { cn } from "@/lib/cn";
+import { api } from "@/lib/api";
+import type { SubscriptionOut } from "@/lib/types";
+import { CreditMeter } from "@/components/billing/CreditMeter";
 
 const resellerNav = [
   { href: "/reseller", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -24,12 +29,14 @@ const resellerNav = [
   { href: "/reseller/orders", label: "Orders", icon: ShoppingCart },
   { href: "/reseller/chats", label: "Live Chats", icon: MessageSquare },
   { href: "/reseller/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/reseller/billing", label: "Billing", icon: CreditCard },
   { href: "/reseller/settings", label: "Settings", icon: Settings },
 ];
 
 const adminNav = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/resellers", label: "Resellers", icon: Users },
+  { href: "/admin/subscriptions", label: "Subscriptions", icon: CreditCard },
   { href: "/admin/chats", label: "All Chats", icon: MessageSquare },
   { href: "/admin/orders", label: "All Orders", icon: ShoppingCart },
   { href: "/admin/number-pool", label: "Number Pool", icon: Phone },
@@ -40,6 +47,17 @@ export function Sidebar() {
   const { role } = useRole();
   const pathname = usePathname();
   const nav = role === "admin" ? adminNav : resellerNav;
+  const [sub, setSub] = useState<SubscriptionOut | null>(null);
+
+  useEffect(() => {
+    if (role !== "reseller") return;
+    let cancelled = false;
+    api<SubscriptionOut>("/billing/me/subscription")
+      .then((s) => { if (!cancelled) setSub(s); })
+      .catch(() => { /* silent — sidebar shouldn't crash on billing fetch */ });
+    return () => { cancelled = true; };
+  }, [role, pathname]);
+
   return (
     <aside className="hidden lg:flex w-[250px] shrink-0 flex-col bg-[var(--bg-sidebar)] text-slate-300">
       <div className="px-5 pt-6 pb-5 flex items-center gap-2.5">
@@ -78,6 +96,11 @@ export function Sidebar() {
         })}
       </nav>
 
+      {role === "reseller" && sub && (
+        <div className="p-3">
+          <CreditMeter sub={sub} />
+        </div>
+      )}
     </aside>
   );
 }

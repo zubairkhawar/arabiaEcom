@@ -25,7 +25,7 @@ export function Shell({
 
   // No session → login
   useEffect(() => {
-    if (!loading && !profile) router.replace("/");
+    if (!loading && !profile) router.replace("/login");
   }, [loading, profile, router]);
 
   // Wrong portal for this role → bounce to the right one.

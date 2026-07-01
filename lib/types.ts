@@ -132,6 +132,68 @@ export interface OrderOut {
   confirmed_at: string | null;
 }
 
+export interface PlanOut {
+  code: string;
+  name: string;
+  price: number;
+  price_annual: number;
+  currency: string;
+  monthly_credits: number;
+  orders_cap: number | null;
+  conversations_cap: number | null;
+  stores_cap: number | null;
+  universal_numbers_cap: number | null;
+  features: string[];
+  sort_order: number;
+}
+
+export interface SubscriptionOut {
+  plan: PlanOut;
+  status: "trial" | "active" | "past_due" | "paused" | "cancelled";
+  billing_cycle: "monthly" | "annual";
+  trial_ends_at: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancelled_at: string | null;
+  credits_balance: number;
+  credits_granted_this_period: number;
+  credits_used_this_period: number;
+  is_trial: boolean;
+  is_paused: boolean;
+  days_left_in_trial: number | null;
+  available_plans: PlanOut[];
+}
+
+export interface CreditLedgerRow {
+  delta: number;
+  reason: string;
+  note: string | null;
+  balance_after: number;
+  occurred_at: string;
+}
+
+export interface CheckoutOut {
+  charge_id: string;
+  redirect_url: string;
+  amount: number;
+  currency: string;
+  plan_code: string;
+  billing_cycle: string;
+}
+
+export interface AdminSubRow {
+  reseller_id: string;
+  reseller_name: string;
+  reseller_email: string;
+  plan_code: string;
+  status: string;
+  credits_balance: number;
+  credits_used_this_period: number;
+  trial_ends_at: string | null;
+  current_period_end: string | null;
+  created_at: string;
+}
+
 export interface AISettingsOut {
   ai_name: string;
   opening_message: string | null;

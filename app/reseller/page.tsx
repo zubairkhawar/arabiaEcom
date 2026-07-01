@@ -43,7 +43,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
 import { useDateRange } from "@/lib/dateRange";
 import { money, num, pct, relTime } from "@/lib/format";
-import type { DashboardOut } from "@/lib/types";
+import type { DashboardOut, SubscriptionOut } from "@/lib/types";
+import { TrialBanner } from "@/components/billing/TrialBanner";
 
 interface ProductLite {
   id: string;
@@ -68,6 +69,7 @@ export default function ResellerDashboard() {
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sub, setSub] = useState<SubscriptionOut | null>(null);
   const { range, label } = useDateRange();
 
   useEffect(() => {
@@ -83,6 +85,7 @@ export default function ResellerDashboard() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => setLoading(false));
+    api<SubscriptionOut>("/billing/me/subscription").then(setSub).catch(() => { /* silent */ });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range]);
 
@@ -114,6 +117,8 @@ export default function ResellerDashboard() {
       subtitle="Real-time view of your channels — pulled from live data."
       showFilters
     >
+      <TrialBanner sub={sub} />
+
       {/* Onboarding banner */}
       {completed < onboarding.length && (
         <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-3 text-sm">
