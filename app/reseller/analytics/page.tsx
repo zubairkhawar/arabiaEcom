@@ -82,16 +82,18 @@ export default function AnalyticsPage() {
 
   return (
     <Shell portal="reseller" title="Analytics" subtitle="Live data from your orders, chats, and ad clicks." showFilters>
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <Tabs
-          variant="underline"
-          value={tab}
-          onChange={(id) => setTab(id as AnalyticsTab)}
-          tabs={[
-            { id: "overview", label: "Overview" },
-            { id: "links", label: "Link Tracking", badge: links.rows.length || undefined },
-          ]}
-        />
+      <div className="mb-5 flex items-center gap-3">
+        <div className="flex-1">
+          <Tabs
+            variant="underline"
+            value={tab}
+            onChange={(id) => setTab(id as AnalyticsTab)}
+            tabs={[
+              { id: "overview", label: "Overview" },
+              { id: "links", label: "Link Tracking", badge: links.rows.length || undefined },
+            ]}
+          />
+        </div>
         <Button variant="outline" size="sm" leftIcon={<Download size={14} />} onClick={exportCsv}>
           Export CSV
         </Button>
