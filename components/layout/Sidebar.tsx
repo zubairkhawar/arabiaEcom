@@ -14,6 +14,7 @@ import {
   Phone,
   Sparkles,
   CreditCard,
+  Activity,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRole } from "@/lib/role";
@@ -40,6 +41,7 @@ const adminNav = [
   { href: "/admin/chats", label: "All Chats", icon: MessageSquare },
   { href: "/admin/orders", label: "All Orders", icon: ShoppingCart },
   { href: "/admin/number-pool", label: "Number Pool", icon: Phone },
+  { href: "/admin/health", label: "Health", icon: Activity },
   { href: "/admin/settings", label: "Platform Settings", icon: Settings },
 ];
 

@@ -138,10 +138,13 @@ export default function NumberPoolPage() {
                             </div>
                             </div>
                             {n.has_token && (
-                              <CopyField
-                                label="Meta webhook URL — paste in WhatsApp Manager"
-                                value={`${API_BASE}/webhooks/wa/pool/${n.id}`}
-                              />
+                              <>
+                                <CopyField
+                                  label="Meta webhook URL — paste in WhatsApp Manager"
+                                  value={`${API_BASE}/webhooks/wa/pool/${n.id}`}
+                                />
+                                <PoolNumberMetaBox numberId={n.id} onChanged={load} />
+                              </>
                             )}
                           </div>
                         );
@@ -239,5 +242,148 @@ function AddNumberModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
         {err && <div className="text-sm text-[var(--danger)] bg-[var(--danger-soft)] border border-red-200 rounded-lg px-3 py-2">{err}</div>}
       </div>
     </Modal>
+  );
+}
+
+interface MetaStatus {
+  ok: boolean;
+  status_code: number;
+  display_phone_number: string | null;
+  verified_name: string | null;
+  code_verification_status: string | null;
+  quality_rating: string | null;
+  name_status: string | null;
+  is_pin_enabled: boolean;
+  throughput_level: string | null;
+  cloud_status: string | null;
+  raw: Record<string, unknown>;
+}
+
+function PoolNumberMetaBox({ numberId, onChanged }: { numberId: string; onChanged: () => void }) {
+  const [status, setStatus] = useState<MetaStatus | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [pin, setPin] = useState("");
+  const [showPin, setShowPin] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  const check = async () => {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const s = await api<MetaStatus>(`/admin/pool-numbers/${numberId}/meta-status`);
+      setStatus(s);
+    } catch (e) {
+      setMsg({ kind: "err", text: e instanceof Error ? e.message : "Status check failed" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async () => {
+    if (!/^\d{6}$/.test(pin)) {
+      setMsg({ kind: "err", text: "PIN must be exactly 6 digits" });
+      return;
+    }
+    if (!confirm(`Register this number with Meta using PIN ${pin}? This is a one-time activation — remember the PIN.`)) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await api(`/admin/pool-numbers/${numberId}/register`, { method: "POST", body: { pin } });
+      setMsg({ kind: "ok", text: "Registered — status should flip to CONNECTED within seconds." });
+      setShowPin(false);
+      setPin("");
+      await check();
+      onChanged();
+    } catch (e) {
+      setMsg({ kind: "err", text: e instanceof Error ? e.message : "Register failed" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cloudStatus = status?.cloud_status;
+  const connected = cloudStatus === "CONNECTED";
+  const pending = cloudStatus === "PENDING";
+  const chipTone = connected ? "bg-emerald-100 text-emerald-800"
+    : pending ? "bg-amber-100 text-amber-800"
+    : "bg-slate-100 text-slate-600";
+
+  return (
+    <div className="mt-2 rounded-lg border border-[var(--border)] bg-slate-50/60 p-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 text-xs">
+          <span className="font-semibold text-[var(--text-secondary)]">Meta status</span>
+          {status ? (
+            <>
+              <span className={`px-2 py-0.5 rounded-full font-semibold ${chipTone}`}>
+                {cloudStatus ?? "unknown"}
+              </span>
+              {status.verified_name && (
+                <span className="text-[var(--text-muted)]">· {status.verified_name}</span>
+              )}
+              {status.throughput_level && status.throughput_level !== "NOT_APPLICABLE" && (
+                <span className="text-[var(--text-muted)]">· throughput {status.throughput_level}</span>
+              )}
+              {status.is_pin_enabled && (
+                <span className="text-emerald-700 font-medium">· 2FA on</span>
+              )}
+            </>
+          ) : (
+            <span className="text-[var(--text-muted)]">not checked</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={check}
+            disabled={loading}
+            className="text-xs px-2 h-7 rounded-md border border-[var(--border)] bg-white hover:bg-slate-50"
+          >
+            {loading ? "Checking…" : "Check status"}
+          </button>
+          {(pending || !connected) && (
+            <button
+              onClick={() => setShowPin((v) => !v)}
+              className="text-xs px-2 h-7 rounded-md bg-[var(--accent)] text-white hover:bg-emerald-600"
+            >
+              {showPin ? "Cancel" : "Register with Meta"}
+            </button>
+          )}
+        </div>
+      </div>
+      {showPin && (
+        <div className="mt-3 flex items-end gap-2">
+          <div className="flex-1">
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+              6-digit 2FA PIN (memorize it — Meta asks for this on any future re-register)
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              className="w-full h-9 rounded-md border border-[var(--border)] px-3 text-sm bg-white font-mono tracking-widest"
+              placeholder="524866"
+            />
+          </div>
+          <button
+            onClick={register}
+            disabled={busy || pin.length !== 6}
+            className="h-9 px-4 rounded-md bg-[var(--accent)] text-white text-xs font-semibold hover:bg-emerald-600 disabled:opacity-50"
+          >
+            {busy ? "Registering…" : "Confirm"}
+          </button>
+        </div>
+      )}
+      {msg && (
+        <div className={`mt-2 text-xs rounded-md px-2 py-1.5 ${
+          msg.kind === "ok" ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+          : "bg-red-50 text-red-800 border border-red-200"
+        }`}>
+          {msg.text}
+        </div>
+      )}
+    </div>
   );
 }

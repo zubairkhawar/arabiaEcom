@@ -22,6 +22,7 @@ const DELIVERY_TONES: Record<DeliveryStatus, "neutral" | "info" | "violet" | "su
   delivered: "success",
   returned: "danger",
   failed: "warning",
+  failed_attempt: "warning",
 };
 
 interface TemplateOut {
@@ -177,7 +178,13 @@ export default function OrdersPage() {
     {
       key: "delivery",
       header: "Delivery",
-      render: (o) => <Badge tone={DELIVERY_TONES[o.delivery_status]}>{o.delivery_status.replace("_", " ")}</Badge>,
+      render: (o) => (
+        <DeliveryQuickEdit
+          orderId={o.id}
+          value={o.delivery_status}
+          onChange={(next) => setOrders((prev) => prev.map((r) => r.id === o.id ? { ...r, delivery_status: next } : r))}
+        />
+      ),
     },
     {
       key: "tracking",
@@ -224,6 +231,7 @@ export default function OrdersPage() {
             { value: "delivered", label: "Delivered" },
             { value: "returned", label: "Returned" },
             { value: "failed", label: "Failed" },
+            { value: "failed_attempt", label: "Failed Attempt" },
           ]} /></div>
           <Button variant="outline" size="sm" leftIcon={<Upload size={14} />} onClick={() => setImportOpen(true)}>Import</Button>
           {shopifyStores.length > 0 && (
@@ -302,6 +310,55 @@ export default function OrdersPage() {
         />
       )}
     </Shell>
+  );
+}
+
+const DELIVERY_OPTIONS: { value: DeliveryStatus; label: string }[] = [
+  { value: "pending", label: "Pending" },
+  { value: "dispatched", label: "Dispatched" },
+  { value: "in_transit", label: "In Transit" },
+  { value: "delivered", label: "Delivered" },
+  { value: "returned", label: "Returned" },
+  { value: "failed", label: "Failed" },
+  { value: "failed_attempt", label: "Failed Attempt" },
+];
+
+function DeliveryQuickEdit({
+  orderId,
+  value,
+  onChange,
+}: {
+  orderId: string;
+  value: DeliveryStatus;
+  onChange: (next: DeliveryStatus) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+
+  const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const next = e.target.value as DeliveryStatus;
+    setSaving(true);
+    try {
+      await api(`/orders/${orderId}`, { method: "PATCH", body: { delivery_status: next } });
+      onChange(next);
+    } catch {
+      // silent — drawer shows errors for complex saves
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <select
+      value={value}
+      onChange={handleChange}
+      disabled={saving}
+      onClick={(e) => e.stopPropagation()}
+      className="text-xs rounded-md border border-[var(--border)] bg-white px-2 py-1 text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50 cursor-pointer"
+    >
+      {DELIVERY_OPTIONS.map((o) => (
+        <option key={o.value} value={o.value}>{o.label}</option>
+      ))}
+    </select>
   );
 }
 
@@ -432,6 +489,7 @@ function OrderDrawer({ order, onClose, onSaved }: { order: OrderOut; onClose: ()
               { value: "delivered", label: "Delivered" },
               { value: "returned", label: "Returned" },
               { value: "failed", label: "Failed" },
+              { value: "failed_attempt", label: "Failed Attempt" },
             ]} />
             <div className="mt-3">
               <Input

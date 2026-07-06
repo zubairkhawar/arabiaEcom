@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { ChevronDown, ChevronRight, ExternalLink, ImageIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, ExternalLink, ImageIcon } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -21,7 +21,8 @@ import { Shell } from "@/components/layout/Shell";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Tabs } from "@/components/ui/Tabs";
-import { api } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
+import { api, API_BASE, getToken } from "@/lib/api";
 import { useDateRange } from "@/lib/dateRange";
 import type { DashboardOut, TrackingOverview, TrackingLinksOut, LinkRow } from "@/lib/types";
 
@@ -65,9 +66,23 @@ export default function AnalyticsPage() {
   const platformWithData = tracking.by_platform.filter((p) => p.clicks > 0 || p.orders > 0);
   const allZero = tracking.total_clicks === 0 && tracking.total_orders === 0;
 
+  const exportCsv = async () => {
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/me/analytics/export/csv?days=${range}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `analytics_${range}d.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Shell portal="reseller" title="Analytics" subtitle="Live data from your orders, chats, and ad clicks." showFilters>
-      <div className="mb-5">
+      <div className="mb-5 flex items-center justify-between gap-3">
         <Tabs
           variant="underline"
           value={tab}
@@ -77,6 +92,9 @@ export default function AnalyticsPage() {
             { id: "links", label: "Link Tracking", badge: links.rows.length || undefined },
           ]}
         />
+        <Button variant="outline" size="sm" leftIcon={<Download size={14} />} onClick={exportCsv}>
+          Export CSV
+        </Button>
       </div>
 
       {tab === "links" && <LinkTrackingPanel data={links} />}

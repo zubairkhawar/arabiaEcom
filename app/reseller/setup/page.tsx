@@ -580,8 +580,123 @@ interface ShopifyStoreOut {
   shop_domain: string;
   api_version: string;
   verified: boolean;
+  status: string;
+  last_error: string | null;
+  last_error_at: string | null;
   last_sync_at: string | null;
+  last_orders_sync_at: string | null;
   products_synced: number;
+  orders_synced: number;
+}
+
+function ShopifyStoreCard({
+  s,
+  onSync,
+  onReconnect,
+  onDisconnect,
+  syncing,
+}: {
+  s: ShopifyStoreOut;
+  onSync: (id: string) => void;
+  onReconnect: (id: string, token: string) => Promise<void>;
+  onDisconnect: (id: string) => void;
+  syncing: string | null;
+}) {
+  const revoked = s.status === "revoked" || s.status === "error";
+  const [showReconnect, setShowReconnect] = useState(false);
+  const [newToken, setNewToken] = useState("");
+  const [reconnecting, setReconnecting] = useState(false);
+  const [reconnectErr, setReconnectErr] = useState<string | null>(null);
+
+  const doReconnect = async () => {
+    setReconnecting(true);
+    setReconnectErr(null);
+    try {
+      await onReconnect(s.id, newToken);
+      setShowReconnect(false);
+      setNewToken("");
+    } catch (e) {
+      setReconnectErr(e instanceof Error ? e.message : "Reconnect failed");
+    } finally {
+      setReconnecting(false);
+    }
+  };
+
+  return (
+    <div className={cn(
+      "rounded-xl border bg-white p-4 space-y-3",
+      revoked ? "border-red-300" : "border-[var(--border)]"
+    )}>
+      <div className="flex flex-col md:flex-row md:items-center gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <ShopifyLogo size={32} />
+          <div className="min-w-0">
+            <div className="font-semibold text-sm truncate">{s.name}</div>
+            <div className="text-xs text-[var(--text-secondary)] truncate">
+              {s.shop_domain} · API {s.api_version}
+            </div>
+            <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
+              {s.products_synced > 0 ? `${s.products_synced} products synced` : "Not synced yet"}
+              {s.last_sync_at && ` · last ${new Date(s.last_sync_at).toLocaleString()}`}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {revoked ? (
+            <Badge tone="danger" dot>Token revoked</Badge>
+          ) : (
+            <Badge tone="success" dot>Connected</Badge>
+          )}
+          {!revoked && (
+            <Button variant="outline" size="sm" onClick={() => onSync(s.id)} disabled={syncing === s.id}>
+              {syncing === s.id ? "Syncing…" : "Sync products"}
+            </Button>
+          )}
+          {revoked && (
+            <Button size="sm" onClick={() => setShowReconnect((v) => !v)}>
+              Reconnect
+            </Button>
+          )}
+          <button onClick={() => onDisconnect(s.id)} className="text-xs text-slate-500 hover:text-red-600 px-2">
+            Disconnect
+          </button>
+        </div>
+      </div>
+
+      {revoked && s.last_error && (
+        <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {s.last_error}
+          {s.last_error_at && (
+            <span className="text-red-400 ml-2">· {new Date(s.last_error_at).toLocaleString()}</span>
+          )}
+        </div>
+      )}
+
+      {showReconnect && (
+        <div className="border-t border-[var(--border)] pt-3 space-y-3">
+          <p className="text-xs text-[var(--text-secondary)]">
+            Generate a new Admin API access token in Shopify → Apps → Develop apps → your app → API credentials, then paste it below.
+          </p>
+          <Input
+            label="New Admin API access token"
+            type="password"
+            value={newToken}
+            onChange={(e) => setNewToken(e.target.value)}
+            placeholder="shpat_…"
+          />
+          {reconnectErr && (
+            <div className="text-xs text-[var(--danger)] bg-[var(--danger-soft)] border border-red-200 rounded-lg px-3 py-2">{reconnectErr}</div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => { setShowReconnect(false); setNewToken(""); setReconnectErr(null); }}>Cancel</Button>
+            <Button size="sm" onClick={doReconnect} disabled={reconnecting || !newToken}>
+              {reconnecting ? "Verifying…" : "Save new token"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ShopifyPanel() {
@@ -592,7 +707,6 @@ function ShopifyPanel() {
   const [ok, setOk] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
 
-  // Add-store form
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [token, setToken] = useState("");
@@ -650,6 +764,15 @@ function ShopifyPanel() {
     }
   };
 
+  const reconnect = async (id: string, newToken: string) => {
+    await api(`/me/shopify/stores/${id}/reconnect`, {
+      method: "POST",
+      body: { access_token: newToken },
+    });
+    setOk("Store reconnected. Token verified with Shopify.");
+    await load();
+  };
+
   return (
     <div className="space-y-6">
       <header className="flex items-center gap-3">
@@ -665,7 +788,6 @@ function ShopifyPanel() {
 
       <ShopifyTutorial />
 
-      {/* Connected stores */}
       {loading ? (
         <div className="text-sm text-[var(--text-secondary)]">Loading stores…</div>
       ) : stores.length === 0 ? (
@@ -676,42 +798,18 @@ function ShopifyPanel() {
       ) : (
         <div className="space-y-3">
           {stores.map((s) => (
-            <div key={s.id} className="rounded-xl border border-[var(--border)] bg-white p-4 flex flex-col md:flex-row md:items-center gap-3">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <ShopifyLogo size={32} />
-                <div className="min-w-0">
-                  <div className="font-semibold text-sm truncate">{s.name}</div>
-                  <div className="text-xs text-[var(--text-secondary)] truncate">
-                    {s.shop_domain} · API {s.api_version}
-                  </div>
-                  <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                    {s.products_synced > 0 ? `${s.products_synced} products synced` : "Not synced yet"}
-                    {s.last_sync_at && ` · last ${new Date(s.last_sync_at).toLocaleString()}`}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge tone="success" dot>connected</Badge>
-                <Button
-                  variant="outline" size="sm"
-                  onClick={() => sync(s.id)}
-                  disabled={syncing === s.id}
-                >
-                  {syncing === s.id ? "Syncing…" : "Sync products"}
-                </Button>
-                <button
-                  onClick={() => disconnect(s.id)}
-                  className="text-xs text-slate-500 hover:text-red-600 px-2"
-                >
-                  Disconnect
-                </button>
-              </div>
-            </div>
+            <ShopifyStoreCard
+              key={s.id}
+              s={s}
+              onSync={sync}
+              onReconnect={reconnect}
+              onDisconnect={disconnect}
+              syncing={syncing}
+            />
           ))}
         </div>
       )}
 
-      {/* Add new store */}
       {!showAdd ? (
         <Button variant="outline" onClick={() => setShowAdd(true)}>
           + Connect a store

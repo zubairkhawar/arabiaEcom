@@ -93,7 +93,8 @@ export type DeliveryStatus =
   | "in_transit"
   | "delivered"
   | "returned"
-  | "failed";
+  | "failed"
+  | "failed_attempt";
 
 export interface OrderItemOut {
   id: string;
