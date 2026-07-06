@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Input";
 import { Toggle } from "@/components/ui/Toggle";
 import { Tabs } from "@/components/ui/Tabs";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, API_BASE, getToken } from "@/lib/api";
 import type {
   ProductOut,
   ProductIn,
@@ -111,6 +111,68 @@ function mergeVariants(combos: Record<string, string>[], existing: VariantIn[]):
     if (prior) return { ...prior, combo, label: comboLabel(combo) };
     return { label: comboLabel(combo), combo, price: null, stock: null, sku: null };
   });
+}
+
+function ImageField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (url: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadErr, setUploadErr] = useState<string | null>(null);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadErr(null);
+    try {
+      const token = getToken();
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`${API_BASE}/products/uploads/image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.detail ?? `HTTP ${res.status}`);
+      onChange(body.url);
+    } catch (err) {
+      setUploadErr(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-xs font-medium text-[var(--text-secondary)]">Product image</label>
+      <div className="flex gap-2 items-start">
+        {value && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={value} alt="" className="w-14 h-14 rounded-lg object-cover border border-[var(--border)] shrink-0" />
+        )}
+        <div className="flex-1 space-y-1.5">
+          <input
+            type="url"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="https://…/photo.jpg"
+            className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+          />
+          <label className={`inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer rounded-md border border-[var(--border)] px-3 py-1.5 hover:bg-slate-50 transition-colors ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
+            <input type="file" accept="image/*" className="hidden" onChange={handleFile} disabled={uploading} />
+            {uploading ? "Uploading…" : "Upload file"}
+          </label>
+          {uploadErr && <div className="text-xs text-[var(--danger)]">{uploadErr}</div>}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function ProductEditor({
@@ -226,11 +288,9 @@ export function ProductEditor({
               onChange={(e) => setState({ ...state, name: e.target.value })}
               placeholder="Wireless Earbuds Pro"
             />
-            <Input
-              label="Image URL (optional)"
+            <ImageField
               value={state.image_url}
-              onChange={(e) => setState({ ...state, image_url: e.target.value })}
-              placeholder="https://…/photo.jpg"
+              onChange={(url) => setState({ ...state, image_url: url })}
             />
             <div className="grid grid-cols-2 gap-3">
               <Input
