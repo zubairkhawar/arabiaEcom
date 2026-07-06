@@ -15,6 +15,7 @@ import {
   Sparkles,
   CreditCard,
   Activity,
+  FileText,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRole } from "@/lib/role";
@@ -29,6 +30,7 @@ const resellerNav = [
   { href: "/reseller/products", label: "Products", icon: Package },
   { href: "/reseller/orders", label: "Orders", icon: ShoppingCart },
   { href: "/reseller/chats", label: "Live Chats", icon: MessageSquare },
+  { href: "/reseller/templates", label: "Templates", icon: FileText },
   { href: "/reseller/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/reseller/billing", label: "Billing", icon: CreditCard },
   { href: "/reseller/settings", label: "Settings", icon: Settings },

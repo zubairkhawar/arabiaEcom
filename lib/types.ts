@@ -421,3 +421,20 @@ export interface TrackingOverview {
     returned: number;
   }>;
 }
+
+export interface TemplateOut {
+  id: string;
+  name: string;
+  category: string;
+  language: string;
+  body: string;
+  header_text: string | null;
+  footer_text: string | null;
+  status: string;
+  meta_template_id: string | null;
+  meta_template_name: string | null;
+  rejection_reason: string | null;
+  components: unknown[] | null;
+  created_at: string;
+  updated_at: string;
+}
