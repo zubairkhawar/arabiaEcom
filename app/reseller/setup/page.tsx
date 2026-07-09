@@ -273,7 +273,19 @@ function WhatsAppWizard() {
                 )}
                 {cfg.assigned_pool_number && (
                   <div className="pt-2 mt-2 border-t border-emerald-200 text-xs text-[var(--text-secondary)]">
-                    Test it: message <span className="font-mono text-[var(--text-primary)]">{cfg.assigned_pool_number}</span> from your phone — your AI should reply within a few seconds.
+                    Test it:{" "}
+                    <a
+                      href={`https://wa.me/${cfg.assigned_pool_number.replace(/\D/g, "")}?text=Hello`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline text-[var(--accent)] hover:opacity-80"
+                    >
+                      click this link to open WhatsApp
+                    </a>
+                    {" "}and send a message — your AI should reply within a few seconds.
+                    <span className="block mt-1 text-[var(--text-muted)]">
+                      Note: this is a WhatsApp Business API number — it cannot be messaged by typing the number directly in WhatsApp.
+                    </span>
                   </div>
                 )}
               </>
