@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { useRole } from "@/lib/role";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const initialMode = params.get("mode") === "signup" ? "signup" : "login";
@@ -19,7 +19,6 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Already signed in? Bounce to the right portal.
   useEffect(() => {
     if (!loading && profile) {
       router.replace(profile.role === "admin" ? "/admin" : "/reseller");
@@ -43,6 +42,92 @@ export default function LoginPage() {
     }
   };
 
+  return (
+    <form
+      onSubmit={submit}
+      className="w-full max-w-sm bg-white border border-[var(--border)] rounded-2xl p-7 card-shadow"
+    >
+      <h1 className="text-2xl font-display font-bold text-[var(--text-primary)]">
+        {mode === "login" ? "Welcome back" : "Create your account"}
+      </h1>
+      <p className="text-sm text-[var(--text-secondary)] mt-1">
+        {mode === "login"
+          ? "Sign in to your Arabia AI dashboard."
+          : "Start your 7-day free trial — 50 AI conversations, no card required."}
+      </p>
+
+      <div className="mt-6 space-y-4">
+        {mode === "signup" && (
+          <Input
+            label="Your name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Layla Hassan"
+            required
+          />
+        )}
+        <Input
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@brand.com"
+          required
+        />
+        <Input
+          label="Password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+      </div>
+
+      {error && (
+        <div className="mt-4 text-xs text-[var(--danger)] bg-[var(--danger-soft)] border border-red-200 rounded-lg px-3 py-2">
+          {error}
+        </div>
+      )}
+
+      <Button
+        type="submit"
+        className="w-full mt-6"
+        rightIcon={<ArrowRight size={16} />}
+        disabled={busy}
+      >
+        {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
+      </Button>
+
+      <p className="text-xs text-[var(--text-muted)] text-center mt-5">
+        {mode === "login" ? (
+          <>
+            New to Arabia AI?{" "}
+            <button
+              type="button"
+              onClick={() => setMode("signup")}
+              className="text-[var(--accent)] hover:underline font-medium"
+            >
+              Create an account
+            </button>
+          </>
+        ) : (
+          <>
+            Already have an account?{" "}
+            <button
+              type="button"
+              onClick={() => setMode("login")}
+              className="text-[var(--accent)] hover:underline font-medium"
+            >
+              Sign in
+            </button>
+          </>
+        )}
+      </p>
+    </form>
+  );
+}
+
+export default function LoginPage() {
   return (
     <div className="min-h-screen flex">
       <div className="hidden lg:flex flex-1 bg-[var(--bg-sidebar)] text-white p-12 flex-col justify-between">
@@ -79,87 +164,9 @@ export default function LoginPage() {
       </div>
 
       <div className="flex-1 flex items-center justify-center px-6 py-12">
-        <form
-          onSubmit={submit}
-          className="w-full max-w-sm bg-white border border-[var(--border)] rounded-2xl p-7 card-shadow"
-        >
-          <h1 className="text-2xl font-display font-bold text-[var(--text-primary)]">
-            {mode === "login" ? "Welcome back" : "Create your account"}
-          </h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">
-            {mode === "login"
-              ? "Sign in to your Arabia AI dashboard."
-              : "Start your 7-day free trial — 50 AI conversations, no card required."}
-          </p>
-
-          <div className="mt-6 space-y-4">
-            {mode === "signup" && (
-              <Input
-                label="Your name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Layla Hassan"
-                required
-              />
-            )}
-            <Input
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@brand.com"
-              required
-            />
-            <Input
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          {error && (
-            <div className="mt-4 text-xs text-[var(--danger)] bg-[var(--danger-soft)] border border-red-200 rounded-lg px-3 py-2">
-              {error}
-            </div>
-          )}
-
-          <Button
-            type="submit"
-            className="w-full mt-6"
-            rightIcon={<ArrowRight size={16} />}
-            disabled={busy}
-          >
-            {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
-          </Button>
-
-          <p className="text-xs text-[var(--text-muted)] text-center mt-5">
-            {mode === "login" ? (
-              <>
-                New to Arabia AI?{" "}
-                <button
-                  type="button"
-                  onClick={() => setMode("signup")}
-                  className="text-[var(--accent)] hover:underline font-medium"
-                >
-                  Create an account
-                </button>
-              </>
-            ) : (
-              <>
-                Already have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => setMode("login")}
-                  className="text-[var(--accent)] hover:underline font-medium"
-                >
-                  Sign in
-                </button>
-              </>
-            )}
-          </p>
-        </form>
+        <Suspense fallback={<div className="w-full max-w-sm h-96 bg-white border border-[var(--border)] rounded-2xl card-shadow animate-pulse" />}>
+          <LoginForm />
+        </Suspense>
       </div>
     </div>
   );
