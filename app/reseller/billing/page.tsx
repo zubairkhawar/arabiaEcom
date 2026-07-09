@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Shell } from "@/components/layout/Shell";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -16,7 +16,7 @@ const TOPUP_OPTIONS = [
   { credits: 2000, price: 999 },
 ];
 
-export default function BillingPage() {
+function BillingContent() {
   const params = useSearchParams();
   const [sub, setSub] = useState<SubscriptionOut | null>(null);
   const [ledger, setLedger] = useState<CreditLedgerRow[]>([]);
@@ -273,6 +273,14 @@ export default function BillingPage() {
         )}
       </Card>
     </Shell>
+  );
+}
+
+export default function BillingPage() {
+  return (
+    <Suspense fallback={<Shell portal="reseller" title="Billing"><div className="text-sm text-[var(--text-secondary)]">Loading…</div></Shell>}>
+      <BillingContent />
+    </Suspense>
   );
 }
 
