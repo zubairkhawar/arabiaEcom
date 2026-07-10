@@ -224,7 +224,6 @@ export default function ProductsPage() {
                       fill
                       sizes="(min-width:1280px) 25vw, 50vw"
                       className="object-cover"
-                      unoptimized={p.image_url.startsWith("https://cdn.shopify.com")}
                     />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center text-slate-300">
